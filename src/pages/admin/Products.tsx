@@ -12,8 +12,20 @@ import {
   type ProductPayload,
 } from "../../api";
 import { currencyFormatter } from "./shared";
+import { invalidateCacheKeys } from "../../core/offlineCache";
 
-const blankProductForm = {
+type ProductFormState = {
+  nombre: string;
+  descripcion: string;
+  precio: string;
+  stock: number;
+  low_stock_threshold: number;
+  categoria_id: string;
+  imagen: string;
+  imagen_archivo: File | null;
+};
+
+const blankProductForm: ProductFormState = {
   nombre: "",
   descripcion: "",
   precio: "",
@@ -21,10 +33,12 @@ const blankProductForm = {
   low_stock_threshold: 0,
   categoria_id: "",
   imagen: "",
+  imagen_archivo: null,
 };
 
 export default function AdminProducts() {
-  const [productForm, setProductForm] = useState<typeof blankProductForm>(blankProductForm);
+  const [productForm, setProductForm] = useState<ProductFormState>(blankProductForm);
+  const [fileInputResetKey, setFileInputResetKey] = useState(0);
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [productFeedback, setProductFeedback] = useState<string | null>(null);
   const queryClient = useQueryClient();
@@ -37,6 +51,7 @@ export default function AdminProducts() {
   } = useQuery({
     queryKey: ["productos"],
     queryFn: fetchProducts,
+    staleTime: 0,
   });
 
   const categoriesQuery = useQuery({
@@ -44,18 +59,25 @@ export default function AdminProducts() {
     queryFn: fetchCategories,
   });
 
+  const clearProductCaches = () => {
+    invalidateCacheKeys("productos", "productos-low-stock");
+    queryClient.invalidateQueries({ queryKey: ["productos"] });
+    queryClient.invalidateQueries({ queryKey: ["productos-low-stock"] });
+  };
+
   const productMutation = useMutation({
     mutationFn: ({ id, payload }: { id: number | null; payload: ProductPayload }) =>
       id ? updateProduct(id, payload) : createProduct(payload),
     onMutate: () => setProductFeedback(null),
-    onSuccess: (_, variables) => {
-      refetchProducts();
-      queryClient.invalidateQueries({ queryKey: ["productos-low-stock"] });
+    onSuccess: async (_, variables) => {
+      clearProductCaches();
+      await refetchProducts();
       setProductFeedback(
         variables.id ? "Producto actualizado correctamente." : "Producto creado correctamente."
       );
       setProductForm(blankProductForm);
       setEditingProductId(null);
+      setFileInputResetKey((value) => value + 1);
     },
     onError: () => setProductFeedback("No pudimos guardar el producto."),
   });
@@ -63,9 +85,9 @@ export default function AdminProducts() {
   const deleteProductMutation = useMutation({
     mutationFn: deleteProduct,
     onMutate: () => setProductFeedback(null),
-    onSuccess: () => {
-      refetchProducts();
-      queryClient.invalidateQueries({ queryKey: ["productos-low-stock"] });
+    onSuccess: async () => {
+      clearProductCaches();
+      await refetchProducts();
       setProductFeedback("Producto eliminado.");
     },
     onError: () => setProductFeedback("No pudimos eliminar el producto."),
@@ -81,16 +103,38 @@ export default function AdminProducts() {
 
     const payload: ProductPayload = {
       nombre: productForm.nombre.trim(),
-      descripcion: productForm.descripcion?.trim() || undefined,
       precio: productForm.precio,
       stock: Number(productForm.stock) || 0,
-      low_stock_threshold:
-        productForm.low_stock_threshold !== undefined
-          ? Number(productForm.low_stock_threshold) || 0
-          : undefined,
-      categoria_id: productForm.categoria_id ? Number(productForm.categoria_id) : undefined,
-      imagen: productForm.imagen?.trim() || undefined,
     };
+
+    const descripcion = productForm.descripcion.trim();
+    if (descripcion) {
+      payload.descripcion = descripcion;
+    } else if (editingProductId && productForm.descripcion === "") {
+      payload.descripcion = "";
+    }
+
+    const lowStockValue = Number(productForm.low_stock_threshold);
+    if (!Number.isNaN(lowStockValue) && productForm.low_stock_threshold !== undefined) {
+      payload.low_stock_threshold = lowStockValue;
+    }
+
+    if (productForm.categoria_id) {
+      payload.categoria_id = Number(productForm.categoria_id);
+    } else if (editingProductId && productForm.categoria_id === "") {
+      payload.categoria_id = null;
+    }
+
+    const imagenUrl = productForm.imagen.trim();
+    if (imagenUrl) {
+      payload.imagen = imagenUrl;
+    } else if (editingProductId && productForm.imagen === "") {
+      payload.imagen = "";
+    }
+
+    if (productForm.imagen_archivo) {
+      payload.imagen_archivo = productForm.imagen_archivo;
+    }
 
     productMutation.mutate({ id: editingProductId, payload });
   };
@@ -105,7 +149,9 @@ export default function AdminProducts() {
       low_stock_threshold: product.low_stock_threshold,
       categoria_id: product.categoria?.id ? String(product.categoria.id) : "",
       imagen: product.imagen ?? "",
+      imagen_archivo: null,
     });
+    setFileInputResetKey((value) => value + 1);
   };
 
   return (
@@ -231,19 +277,48 @@ export default function AdminProducts() {
                 />
               
               </div>
-              <div>
-                <label className="text-sm font-medium text-gray-700" htmlFor="product-image">
-                  Imagen (URL)
-                </label>
-                <input
-                  id="product-image"
-                  value={productForm.imagen}
-                  onChange={(event) =>
-                    setProductForm((prev) => ({ ...prev, imagen: event.target.value }))
-                  }
-                  className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-                />
-              </div>
+            <div>
+              <label className="text-sm font-medium text-gray-700" htmlFor="product-image">
+                Imagen (URL)
+              </label>
+              <input
+                id="product-image"
+                value={productForm.imagen}
+                onChange={(event) =>
+                  setProductForm((prev) => ({ ...prev, imagen: event.target.value }))
+                }
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+                placeholder="https://..."
+              />
+              <label
+                className="mt-3 block text-sm font-medium text-gray-700"
+                htmlFor="product-image-file"
+              >
+                Imagen (archivo)
+              </label>
+              <input
+                key={fileInputResetKey}
+                id="product-image-file"
+                type="file"
+                accept="image/*"
+                onChange={(event) =>
+                  setProductForm((prev) => ({
+                    ...prev,
+                    imagen_archivo: event.target.files?.[0] ?? null,
+                  }))
+                }
+                className="mt-1 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none file:border-0 file:bg-transparent file:text-sm file:font-medium"
+              />
+              {productForm.imagen_archivo ? (
+                <p className="mt-1 text-xs text-gray-500">
+                  Archivo seleccionado: {productForm.imagen_archivo.name}
+                </p>
+              ) : productForm.imagen ? (
+                <p className="mt-1 text-xs text-gray-500">
+                  Imagen actual: {productForm.imagen}
+                </p>
+              ) : null}
+            </div>
             </div>
             <div>
               <label className="text-sm font-medium text-gray-700" htmlFor="product-description">
@@ -278,6 +353,7 @@ export default function AdminProducts() {
                   onClick={() => {
                     setEditingProductId(null);
                     setProductForm(blankProductForm);
+                    setFileInputResetKey((value) => value + 1);
                   }}
                   className="rounded-2xl border border-gray-200 px-4 py-2 text-sm font-semibold text-gray-600 hover:bg-gray-50"
                 >

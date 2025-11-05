@@ -6,9 +6,6 @@ const priceFormatter = new Intl.NumberFormat("en-US", {
   currency: "USD",
 });
 
-const fallbackImage =
-  "https://images.unsplash.com/photo-1517430816045-df4b7de11d1d?auto=format&fit=crop&w=600&q=80";
-
 interface ProductCardProps {
   product: Product;
   onBuy: (product: Product) => void;
@@ -32,12 +29,18 @@ export function ProductCard({ product, onBuy, showStock = false }: ProductCardPr
           -{percentageLabel}%
         </span>
       )}
-      <img
-        src={product.imagen || fallbackImage}
-        alt={product.nombre}
-        className="mb-3 h-40 w-full rounded-md object-cover"
-        loading="lazy"
-      />
+      {product.imagen ? (
+        <img
+          src={product.imagen}
+          alt={product.nombre}
+          className="mb-3 h-40 w-full rounded-md object-cover"
+          loading="lazy"
+        />
+      ) : (
+        <div className="mb-3 flex h-40 w-full items-center justify-center rounded-md border border-dashed border-gray-300 bg-gray-50 text-sm text-gray-400">
+          Sin imagen
+        </div>
+      )}
       <h2 className="text-lg font-semibold text-gray-800">{product.nombre}</h2>
       <p className="flex-1 text-sm text-gray-500">{product.descripcion || "Sin descripcion"}</p>
       <div className="mt-3 flex items-center justify-between gap-3">

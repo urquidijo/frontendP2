@@ -1,5 +1,7 @@
 import axios from "axios";
 
+import { fetchWithCache, type CacheOptions } from "../core/offlineCache";
+
 const apiBase =
   (import.meta.env.VITE_API_URL as string | undefined) ?? "http://127.0.0.1:8000/api/";
 
@@ -51,6 +53,7 @@ export interface ProductPayload {
   low_stock_threshold?: number;
   categoria_id?: number | null;
   imagen?: string | null;
+  imagen_archivo?: File | null;
 }
 
 export interface Usuario {
@@ -105,23 +108,55 @@ export interface AuthResponse {
   user: Usuario;
 }
 
-export const fetchProducts = async () => {
-  const { data } = await api.get<Product[]>("productos/");
-  return data;
-};
+const cachedGet = <T>(key: string, url: string, ttl?: number, options?: CacheOptions) =>
+  fetchWithCache<T>(key, async () => {
+    const { data } = await api.get<T>(url);
+    return data;
+  }, ttl, options);
 
-export const fetchLowStockProducts = async () => {
-  const { data } = await api.get<Product[]>("productos/low-stock/");
-  return data;
+export const fetchProducts = async () => cachedGet<Product[]>("productos", "productos/", 1000 * 60 * 5);
+
+export const fetchLowStockProducts = async () =>
+  cachedGet<Product[]>("productos-low-stock", "productos/low-stock/", 1000 * 60 * 2);
+
+const productPayloadToFormData = (payload: Partial<ProductPayload>) => {
+  const formData = new FormData();
+
+  if (payload.nombre !== undefined) {
+    formData.append("nombre", payload.nombre);
+  }
+  if (payload.descripcion !== undefined) {
+    formData.append("descripcion", payload.descripcion ?? "");
+  }
+  if (payload.precio !== undefined) {
+    formData.append("precio", payload.precio);
+  }
+  if (payload.stock !== undefined) {
+    formData.append("stock", String(payload.stock));
+  }
+  if (payload.low_stock_threshold !== undefined) {
+    formData.append("low_stock_threshold", String(payload.low_stock_threshold ?? ""));
+  }
+  if (payload.categoria_id !== undefined) {
+    const value = payload.categoria_id;
+    formData.append("categoria_id", value === null ? "" : String(value));
+  }
+  if (payload.imagen_archivo) {
+    formData.append("imagen_archivo", payload.imagen_archivo);
+  } else if (payload.imagen !== undefined) {
+    formData.append("imagen", payload.imagen ?? "");
+  }
+
+  return formData;
 };
 
 export const createProduct = async (payload: ProductPayload) => {
-  const { data } = await api.post<Product>("productos/", payload);
+  const { data } = await api.post<Product>("productos/", productPayloadToFormData(payload));
   return data;
 };
 
 export const updateProduct = async (id: number, payload: Partial<ProductPayload>) => {
-  const { data } = await api.patch<Product>(`productos/${id}/`, payload);
+  const { data } = await api.patch<Product>(`productos/${id}/`, productPayloadToFormData(payload));
   return data;
 };
 
@@ -142,16 +177,17 @@ export interface DiscountPayload {
 }
 
 export const fetchDiscounts = async (params?: { activos?: boolean }) => {
-  const { data } = await api.get<ProductDiscount[]>("descuentos/", {
-    params: params?.activos ? { activos: true } : undefined,
+  const key = params?.activos ? "descuentos-activos" : "descuentos";
+  return fetchWithCache<ProductDiscount[]>(key, async () => {
+    const { data } = await api.get<ProductDiscount[]>("descuentos/", {
+      params: params?.activos ? { activos: true } : undefined,
+    });
+    return data;
   });
-  return data;
 };
 
-export const fetchActiveDiscounts = async () => {
-  const { data } = await api.get<ProductDiscount[]>("descuentos/activos/");
-  return data;
-};
+export const fetchActiveDiscounts = async () =>
+  cachedGet<ProductDiscount[]>("descuentos-activos-listado", "descuentos/activos/", 1000 * 60 * 10);
 
 export const createDiscounts = async (payload: DiscountPayload) => {
   const { data } = await api.post("descuentos/", payload);
@@ -197,25 +233,17 @@ export const syncCart = async (payload: CartSyncPayload) => {
   return data;
 };
 
-export const fetchCategories = async () => {
-  const { data } = await api.get<Category[]>("categorias/");
-  return data;
-};
+export const fetchCategories = async () =>
+  cachedGet<Category[]>("categorias", "categorias/", 1000 * 60 * 30);
 
-export const fetchUsers = async () => {
-  const { data } = await api.get<Usuario[]>("usuario/");
-  return data;
-};
+export const fetchUsers = async () =>
+  cachedGet<Usuario[]>("usuarios", "usuario/", 1000 * 60 * 5);
 
-export const fetchRoles = async () => {
-  const { data } = await api.get<Rol[]>("rol/");
-  return data;
-};
+export const fetchRoles = async () =>
+  cachedGet<Rol[]>("roles", "rol/", 1000 * 60 * 30);
 
-export const fetchRolePermissions = async () => {
-  const { data } = await api.get<RolePermission[]>("rolpermiso/");
-  return data;
-};
+export const fetchRolePermissions = async () =>
+  cachedGet<RolePermission[]>("roles-permisos", "rolpermiso/", 1000 * 60 * 10);
 
 export const registerUser = async (payload: RegisterPayload) => {
   const { data } = await api.post<Usuario>("usuario/", payload);
@@ -227,10 +255,8 @@ export const loginUser = async (payload: LoginPayload) => {
   return data;
 };
 
-export const fetchCurrentUser = async () => {
-  const { data } = await api.get<Usuario>("auth/me/");
-  return data;
-};
+export const fetchCurrentUser = async () =>
+  cachedGet<Usuario>("usuario-actual", "auth/me/", 1000 * 60 * 5, { fallbackOnError: false });
 
 export const adminCreateUser = async (payload: AdminUserCreatePayload) => {
   const { data } = await api.post<Usuario>("usuario/", payload);
@@ -255,10 +281,8 @@ export interface BitacoraEntry {
   creado_en: string;
 }
 
-export const fetchBitacoraEntries = async () => {
-  const { data } = await api.get<BitacoraEntry[]>("bitacora/");
-  return data;
-};
+export const fetchBitacoraEntries = async () =>
+  cachedGet<BitacoraEntry[]>("bitacora", "bitacora/", 1000 * 60 * 2);
 
 export const logoutUser = async () => {
   await api.post("auth/logout/");
@@ -297,15 +321,14 @@ export interface Invoice {
   created_at: string;
 }
 
-export const fetchInvoices = async (usuarioId: number) => {
-  const { data } = await api.get<Invoice[]>(`pagos/facturas/?usuario=${usuarioId}`);
-  return data;
-};
+export const fetchInvoices = async (usuarioId: number) =>
+  fetchWithCache<Invoice[]>(`facturas-usuario-${usuarioId}`, async () => {
+    const { data } = await api.get<Invoice[]>(`pagos/facturas/?usuario=${usuarioId}`);
+    return data;
+  });
 
-export const fetchAllInvoices = async () => {
-  const { data } = await api.get<Invoice[]>("pagos/facturas/");
-  return data;
-};
+export const fetchAllInvoices = async () =>
+  cachedGet<Invoice[]>("facturas", "pagos/facturas/", 1000 * 60 * 5);
 
 export type ReportFormat = "screen" | "pdf" | "excel";
 
@@ -381,10 +404,8 @@ export interface SalesHistoryResponse {
   by_category: SalesPoint[];
 }
 
-export const fetchSalesHistory = async () => {
-  const { data } = await api.get<SalesHistoryResponse>("analitica/ventas/historicas/");
-  return data;
-};
+export const fetchSalesHistory = async () =>
+  cachedGet<SalesHistoryResponse>("analitica-historicas", "analitica/ventas/historicas/", 1000 * 60 * 30);
 
 export interface CategoryForecast {
   category: string;
@@ -408,10 +429,8 @@ export interface SalesPredictionsResponse {
   };
 }
 
-export const fetchSalesPredictions = async () => {
-  const { data } = await api.get<SalesPredictionsResponse>("analitica/ventas/predicciones/");
-  return data;
-};
+export const fetchSalesPredictions = async () =>
+  cachedGet<SalesPredictionsResponse>("analitica-predicciones", "analitica/ventas/predicciones/", 1000 * 60 * 30);
 
 export interface SalesModelMetadata {
   trained_at?: string;

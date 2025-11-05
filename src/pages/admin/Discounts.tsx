@@ -12,6 +12,18 @@ import {
 } from "../../api";
 import { currencyFormatter } from "./shared";
 
+const classNames = (...values: Array<string | false | null | undefined>) =>
+  values.filter(Boolean).join(" ");
+
+const normalizeText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
+
 const toDateTimeLocal = (value: string | null | undefined) => {
   if (!value) return "";
   const date = new Date(value);
@@ -39,6 +51,7 @@ export default function AdminDiscounts() {
   const [formState, setFormState] = useState(defaultFormState);
   const [feedback, setFeedback] = useState<string | null>(null);
   const [editingDiscount, setEditingDiscount] = useState<ProductDiscount | null>(null);
+  const [productSearch, setProductSearch] = useState("");
 
   const productsQuery = useQuery({
     queryKey: ["productos"],
@@ -83,9 +96,19 @@ export default function AdminDiscounts() {
     });
   }, [discountsQuery.data]);
 
+  const filteredProducts = useMemo(() => {
+    const list = productsQuery.data ?? [];
+    const normalized = normalizeText(productSearch);
+    if (!normalized) {
+      return list;
+    }
+    return list.filter((product) => normalizeText(product.nombre).includes(normalized));
+  }, [productSearch, productsQuery.data]);
+
   const resetForm = () => {
     setFormState(defaultFormState);
     setEditingDiscount(null);
+    setProductSearch("");
   };
 
   const handleEdit = (discount: ProductDiscount) => {
@@ -100,6 +123,19 @@ export default function AdminDiscounts() {
 
   const handleDelete = (discount: ProductDiscount) => {
     deleteMutation.mutate(discount.id);
+  };
+
+  const handleToggleProduct = (productId: number) => {
+    setFormState((prev) => {
+      if (editingDiscount) {
+        return { ...prev, selectedProducts: [productId] };
+      }
+      const alreadySelected = prev.selectedProducts.includes(productId);
+      const selectedProducts = alreadySelected
+        ? prev.selectedProducts.filter((id) => id !== productId)
+        : [...prev.selectedProducts, productId];
+      return { ...prev, selectedProducts };
+    });
   };
 
   const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
@@ -201,32 +237,108 @@ export default function AdminDiscounts() {
           Selecciona uno o varios productos y define el periodo del descuento.
         </p>
 
-        <form onSubmit={handleSubmit} className="mt-4 grid gap-4 lg:grid-cols-[280px,1fr]">
+        <form onSubmit={handleSubmit} className="mt-4 grid gap-4 lg:grid-cols-[380px,1fr]">
           <div className="space-y-3">
-            <label className="text-sm font-medium text-gray-700" htmlFor="discount-products">
-              Productos en descuento
-            </label>
-            <select
-              id="discount-products"
-              multiple={!editingDiscount}
-              value={formState.selectedProducts.map(String)}
-              onChange={(event) => {
-                const options = Array.from(event.target.selectedOptions).map((option) =>
-                  Number(option.value)
-                );
-                setFormState((prev) => ({ ...prev, selectedProducts: options }));
-              }}
-              className="h-48 w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
-            >
-              {(productsQuery.data ?? []).map((product) => (
-                <option key={product.id} value={product.id}>
-                  {product.nombre} — {currencyFormatter.format(Number(product.precio))}
-                </option>
-              ))}
-            </select>
-            {!editingDiscount && (
+            <div className="flex items-center justify-between gap-3">
+              <label className="text-sm font-medium text-gray-700" htmlFor="discount-product-search">
+                Productos en descuento
+              </label>
+              <span className="text-xs text-gray-500">
+                Seleccionados:{" "}
+                <span className="font-semibold text-gray-900">{formState.selectedProducts.length}</span>
+              </span>
+            </div>
+            <input
+              id="discount-product-search"
+              type="search"
+              placeholder="Buscar por nombre..."
+              value={productSearch}
+              onChange={(event) => setProductSearch(event.target.value)}
+              className="w-full rounded-2xl border border-gray-200 px-3 py-2 text-sm focus:border-primary focus:outline-none"
+            />
+
+            <div className="max-h-[24rem] space-y-3 overflow-y-auto pr-1">
+              {productsQuery.isLoading ? (
+                <div className="space-y-3">
+                  {Array.from({ length: 6 }).map((_, index) => (
+                    <div
+                      key={index}
+                      className="h-28 animate-pulse rounded-2xl border border-gray-100 bg-gray-100"
+                    />
+                  ))}
+                </div>
+              ) : productsQuery.isError ? (
+                <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-600">
+                  No pudimos cargar los productos. Intenta nuevamente más tarde.
+                </div>
+              ) : !filteredProducts.length ? (
+                <div className="rounded-2xl border border-dashed border-gray-200 p-4 text-sm text-gray-500">
+                  No encontramos productos que coincidan con “{productSearch}”.
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  {filteredProducts.map((product) => {
+                    const isSelected = formState.selectedProducts.includes(product.id);
+                    return (
+                      <button
+                        type="button"
+                        key={product.id}
+                        onClick={() => handleToggleProduct(product.id)}
+                        className={classNames(
+                          "flex h-full flex-col overflow-hidden rounded-2xl border text-left shadow-sm transition",
+                          isSelected
+                            ? "border-primary ring-2 ring-primary/40"
+                            : "border-gray-100 hover:border-primary/40 hover:shadow-md"
+                        )}
+                      >
+                        <div className="relative h-32 w-full overflow-hidden border-b border-gray-100 bg-gray-50">
+                          {product.imagen ? (
+                            <img
+                              src={product.imagen}
+                              alt={product.nombre}
+                              className="h-full w-full object-cover"
+                              loading="lazy"
+                            />
+                          ) : (
+                            <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
+                              Sin imagen
+                            </div>
+                          )}
+                          {isSelected && (
+                            <span className="absolute right-3 top-3 inline-flex items-center justify-center rounded-full bg-primary px-2 py-1 text-xs font-semibold text-white shadow">
+                              Seleccionado
+                            </span>
+                          )}
+                        </div>
+                        <div className="flex flex-1 flex-col gap-1 p-3">
+                          <p className="text-xs uppercase tracking-wide text-gray-400">
+                            {product.categoria?.nombre ?? "Sin categoría"}
+                          </p>
+                          <h3 className="line-clamp-2 text-sm font-semibold text-gray-900">
+                            {product.nombre}
+                          </h3>
+                          <p className="text-sm text-gray-500">
+                            {currencyFormatter.format(Number(product.precio))}
+                          </p>
+                          <p className="mt-auto text-xs text-gray-400">
+                            Stock disponible: {product.stock}
+                          </p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {editingDiscount ? (
               <p className="text-xs text-gray-500">
-                Mantén presionada la tecla Ctrl (Windows) o Cmd (Mac) para seleccionar varios productos.
+                Estás editando un descuento existente. Solo puedes seleccionar un producto.
+              </p>
+            ) : (
+              <p className="text-xs text-gray-500">
+                Haz clic en las tarjetas para seleccionar múltiples productos. Se aplicará el mismo
+                descuento a todos los seleccionados.
               </p>
             )}
           </div>

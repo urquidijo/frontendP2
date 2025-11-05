@@ -6,6 +6,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { QueryClientProvider } from "@tanstack/react-query";
 import { queryClient } from "./core/queryClient";
 import { Navbar } from "./components/ui";
+import { OfflineBanner } from "./components/OfflineBanner";
 import { fetchCurrentUser } from "./api";
 import { useUserStore } from "./core/store";
 import { useCartSync } from "./hooks/useCartSync";
@@ -44,6 +45,7 @@ function AppShell() {
 
   return (
     <>
+      <OfflineBanner />
       <Navbar />
 
       {/* Layout PUBLICO (contenedor centrado, mejor escalado) */}

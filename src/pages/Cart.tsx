@@ -1,7 +1,12 @@
 import { useCallback, useMemo, useState, type JSX } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useMutation, useQuery } from "@tanstack/react-query";
-import { createCheckoutSession, fetchProducts, getProductEffectivePrice } from "../api";
+import {
+  createCheckoutSession,
+  fetchProducts,
+  getProductEffectivePrice,
+  type Product,
+} from "../api";
 import { useCartStore } from "../core/cartStore";
 import { useUserStore } from "../core/store";
 import { useSpeechToText } from "../hooks/useSpeechToText";
@@ -17,6 +22,15 @@ const FREE_SHIPPING_THRESHOLD = 100; // solo UI
 function classNames(...cx: Array<string | false | null | undefined>) {
   return cx.filter(Boolean).join(" ");
 }
+
+const normalizeText = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^\w\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toLowerCase();
 
 /* ===================== UI Primitives ===================== */
 function Card({ children, className = "" }: { children: React.ReactNode; className?: string }) {
@@ -137,8 +151,47 @@ export default function Cart() {
   const [commandInput, setCommandInput] = useState("");
   const [commandFeedback, setCommandFeedback] = useState<string | null>(null);
   const [confirmRemoveId, setConfirmRemoveId] = useState<number | null>(null);
+  const [commandSuggestions, setCommandSuggestions] = useState<Product[]>([]);
+  const [suggestionMode, setSuggestionMode] = useState<"add" | "remove" | null>(null);
+  const [pendingQuantity, setPendingQuantity] = useState(1);
 
   const { data: catalog } = useQuery({ queryKey: ["productos-cart"], queryFn: fetchProducts });
+
+  const searchIndex = useMemo(
+    () =>
+      (catalog ?? []).map((product) => ({
+        product,
+        normalized: normalizeText(product.nombre),
+      })),
+    [catalog],
+  );
+
+  const findProducts = useCallback(
+    (query: string) => {
+      const normalizedQuery = normalizeText(query);
+      if (!normalizedQuery) {
+        return { exact: null as Product | null, matches: [] as Product[] };
+      }
+
+      const words = normalizedQuery.split(" ").filter(Boolean);
+      let exact: Product | null = null;
+      const matches: Product[] = [];
+
+      for (const { product, normalized } of searchIndex) {
+        if (normalized === normalizedQuery) {
+          exact = product;
+        }
+        if (words.every((word) => normalized.includes(word))) {
+          if (!matches.includes(product)) {
+            matches.push(product);
+          }
+        }
+      }
+
+      return { exact, matches };
+    },
+    [searchIndex],
+  );
 
   const checkoutMutation = useMutation({
     mutationFn: createCheckoutSession,
@@ -176,13 +229,42 @@ export default function Cart() {
     });
   };
 
-  const findProductByCommand = useCallback(
-    (command: string) => {
-      if (!catalog) return null;
-      const normalized = command.toLowerCase();
-      return catalog.find((p) => p.nombre.toLowerCase().includes(normalized)) ?? null;
+  const applyAddToCart = useCallback(
+    (product: Product, quantity: number, fromVoice: boolean) => {
+      const existing = items.find((i) => i.product.id === product.id);
+      if (existing) {
+        updateQuantity(product.id, existing.quantity + quantity);
+      } else {
+        addItem(product);
+        if (quantity > 1) {
+          updateQuantity(product.id, quantity);
+        }
+      }
+      setCommandFeedback(
+        `Se agregó ${product.nombre} (${quantity}) al carrito vía ${fromVoice ? "voz" : "texto"}.`
+      );
+      setCommandSuggestions([]);
+      setSuggestionMode(null);
+      setPendingQuantity(1);
     },
-    [catalog]
+    [addItem, items, updateQuantity]
+  );
+
+  const handleSuggestionSelection = useCallback(
+    (product: Product) => {
+      if (suggestionMode === "add") {
+        applyAddToCart(product, pendingQuantity, false);
+        return;
+      }
+      if (suggestionMode === "remove") {
+        removeItem(product.id);
+        setCommandFeedback(`Se eliminó ${product.nombre} del carrito.`);
+        setCommandSuggestions([]);
+        setSuggestionMode(null);
+        setPendingQuantity(1);
+      }
+    },
+    [applyAddToCart, pendingQuantity, removeItem, suggestionMode]
   );
 
   const interpretCommand = useCallback(
@@ -192,68 +274,133 @@ export default function Cart() {
         setCommandFeedback("Aún estamos cargando el catálogo. Intenta en unos segundos.");
         return;
       }
-      const normalized = instruction.toLowerCase();
-      const quantityMatch = normalized.match(/(\d+)/);
-      const quantity = quantityMatch ? Math.max(1, Number(quantityMatch[1])) : 1;
 
-      if (normalized.includes("agregar") || normalized.includes("añadir") || normalized.includes("anadir")) {
-        const productName = normalized
-          .replace("agregar", "")
-          .replace("añadir", "")
-          .replace("anadir", "")
-          .replace(String(quantityMatch?.[0] ?? ""), "")
-          .trim();
-        if (!productName) {
+      setCommandSuggestions([]);
+      setSuggestionMode(null);
+
+      const lower = instruction.toLowerCase();
+
+      const stripAction = (value: string) =>
+        value.replace(/agregar/gi, "").replace(/añadir/gi, "").replace(/anadir/gi, "").trim();
+
+      if (lower.includes("agregar") || lower.includes("añadir") || lower.includes("anadir")) {
+        const baseText = stripAction(instruction);
+        if (!baseText) {
           setCommandFeedback("Necesito el nombre del producto que deseas agregar.");
           return;
         }
-        const product = findProductByCommand(productName);
-        if (!product) {
+
+        const attempts: Array<{ text: string; quantity: number }> = [];
+        const trailingNumberMatch = baseText.match(/(\d+)\s*$/);
+        if (trailingNumberMatch) {
+          const quantityValue = Math.max(1, Number(trailingNumberMatch[1]));
+          const withoutNumber = baseText.slice(0, trailingNumberMatch.index).trim();
+          if (withoutNumber) {
+            attempts.push({ text: withoutNumber, quantity: quantityValue });
+          }
+          if (!withoutNumber) {
+            attempts.push({ text: baseText, quantity: quantityValue });
+          } else {
+            attempts.push({ text: baseText, quantity: 1 });
+          }
+        } else {
+          attempts.push({ text: baseText, quantity: 1 });
+        }
+
+        let candidates: Product[] = [];
+        let exact: Product | null = null;
+        let usedQuantity = 1;
+        let searchLabel = baseText;
+
+        for (const attempt of attempts) {
+          const result = findProducts(attempt.text);
+          if (result.matches.length) {
+            candidates = result.matches;
+            exact = result.exact;
+            usedQuantity = attempt.quantity;
+            searchLabel = attempt.text;
+            break;
+          }
+        }
+
+        if (!candidates.length) {
           setCommandFeedback("No pude encontrar ese producto.");
           return;
         }
-        const existing = items.find((i) => i.product.id === product.id);
-        if (existing) {
-          updateQuantity(product.id, existing.quantity + quantity);
-        } else {
-          addItem(product);
-          if (quantity > 1) updateQuantity(product.id, quantity);
+
+        const selectedProduct = exact ?? (candidates.length === 1 ? candidates[0] : null);
+        if (!selectedProduct) {
+          setPendingQuantity(usedQuantity);
+          setSuggestionMode("add");
+          setCommandSuggestions(candidates);
+          const preview = candidates
+            .slice(0, 5)
+            .map((p) => p.nombre)
+            .join(" - ");
+          setCommandFeedback(
+            `Encontré ${candidates.length} productos para "${searchLabel}". Elige uno de la lista: ${preview}${
+              candidates.length > 5 ? "..." : ""
+            }`
+          );
+          return;
         }
-        setCommandFeedback(`Se agregó ${product.nombre} (${quantity}) al carrito vía ${fromVoice ? "voz" : "texto"}.`);
+
+        applyAddToCart(selectedProduct, usedQuantity, fromVoice);
         return;
       }
 
-      if (normalized.includes("quitar") || normalized.includes("eliminar")) {
-        const productName = normalized.replace("quitar", "").replace("eliminar", "").trim();
-        if (!productName) {
+      if (lower.includes("quitar") || lower.includes("eliminar")) {
+        const productNameRaw = instruction.replace(/quitar/gi, "").replace(/eliminar/gi, "").trim();
+        if (!productNameRaw) {
           setCommandFeedback("Indica el producto que deseas quitar.");
           return;
         }
-        const product = findProductByCommand(productName);
-        if (!product) {
+
+        const { exact, matches } = findProducts(productNameRaw);
+        if (!matches.length) {
           setCommandFeedback("No pude encontrar el producto a quitar.");
           return;
         }
+
+        const product = exact ?? (matches.length === 1 ? matches[0] : null);
+        if (!product) {
+          setSuggestionMode("remove");
+          setCommandSuggestions(matches);
+          const preview = matches
+            .slice(0, 5)
+            .map((p) => p.nombre)
+            .join(" - ");
+          setCommandFeedback(
+            `Encontré ${matches.length} productos que coinciden con "${productNameRaw}". Selecciona uno de la lista: ${preview}${
+              matches.length > 5 ? "..." : ""
+            }`
+          );
+          return;
+        }
+
         removeItem(product.id);
         setCommandFeedback(`Se eliminó ${product.nombre} del carrito.`);
+        setPendingQuantity(1);
         return;
       }
 
-      if (normalized.includes("vaciar") || normalized.includes("limpiar")) {
+      if (lower.includes("vaciar") || lower.includes("limpiar")) {
         clear();
         setCommandFeedback("Se vació el carrito.");
+        setPendingQuantity(1);
         return;
       }
 
-      if (normalized.includes("pagar") || normalized.includes("comprar")) {
+      if (lower.includes("pagar") || lower.includes("comprar")) {
         handleCheckout();
         setCommandFeedback("Procesando pago...");
+        setPendingQuantity(1);
         return;
       }
 
       setCommandFeedback("No entendí el comando. Intenta con 'agregar', 'quitar', 'pagar' o 'vaciar'.");
     },
-    [catalog, findProductByCommand, items, updateQuantity, addItem, removeItem, clear]
+    [catalog, findProducts, applyAddToCart, removeItem, clear, handleCheckout]
   );
 
   const { isListening, isSupported, startListening, stopListening } = useSpeechToText({
@@ -304,6 +451,22 @@ export default function Cart() {
           </Button>
           {commandFeedback && <span className="text-gray-600">{commandFeedback}</span>}
         </div>
+        {commandSuggestions.length > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-gray-700">
+            <span className="font-medium text-gray-500">Coincidencias:</span>
+            {commandSuggestions.slice(0, 6).map((product) => (
+              <Button
+                key={product.id}
+                variant="ghost"
+                className="border border-gray-200 px-3 py-1 text-xs font-semibold text-primary hover:border-primary"
+                onClick={() => handleSuggestionSelection(product)}
+              >
+                {product.nombre}
+              </Button>
+            ))}
+            {commandSuggestions.length > 6 && <span className="text-xs text-gray-400">Y más...</span>}
+          </div>
+        )}
         {!isSupported && (
           <p className="mt-2 text-xs text-yellow-600">Tu navegador no soporta reconocimiento de voz. Usa comandos de texto.</p>
         )}
