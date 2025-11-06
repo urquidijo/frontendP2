@@ -71,7 +71,7 @@ function Button(
 
 function QtyStepper({ value, onChange }: { value: number; onChange: (next: number) => void }) {
   return (
-    <div className="inline-flex items-stretch overflow-hidden rounded-xl border border-gray-200">
+    <div className="inline-flex items-stretch overflow-hidden rounded-xl border border-gray-200 shrink-0">
       <button
         type="button"
         aria-label="Disminuir"
@@ -101,7 +101,7 @@ function QtyStepper({ value, onChange }: { value: number; onChange: (next: numbe
 
 function LineItemPrice({ unit, original, hasDiscount }: { unit: number; original: number; hasDiscount: boolean }) {
   return (
-    <div className="text-right text-sm">
+    <div className="text-right text-sm shrink-0">
       {hasDiscount ? (
         <>
           <span className="block text-xs text-gray-400 line-through">{priceFormatter.format(original)}</span>
@@ -137,11 +137,11 @@ function EmptyState() {
 }
 
 /* ===================== Mini componente de imagen ===================== */
-function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
+function ProductThumb({ src, alt, className = "" }: { src?: string | null; alt: string; className?: string }) {
   const [error, setError] = useState(false);
   const showImg = !!src && !error;
   return (
-    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-gray-50">
+    <div className={classNames("h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-gray-50", className)}>
       {showImg ? (
         <img
           src={src!}
@@ -153,6 +153,120 @@ function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
       ) : (
         <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
           Sin imagen
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ===================== Tarjeta de sugerencia ===================== */
+function SuggestionCard({
+  product,
+  mode,
+  quantity,
+  onChangeQty,
+  onAdd,
+  onRemove,
+}: {
+  product: Product;
+  mode: "add" | "remove";
+  quantity: number;
+  onChangeQty: (n: number) => void;
+  onAdd: (p: Product, qty: number) => void;
+  onRemove: (p: Product) => void;
+}) {
+  const unit = getProductEffectivePrice(product);
+  const original = Number(product.active_discount?.precio_original ?? product.precio);
+  const hasDiscount = Boolean(product.active_discount?.esta_activo);
+
+  return (
+    <div className="group flex gap-3 rounded-2xl border border-gray-100 p-3 transition hover:shadow-sm">
+      <ProductThumb src={product.imagen} alt={product.nombre} className="h-16 w-16 rounded-xl" />
+      <div className="min-w-0 flex-1">
+        <p className="truncate text-sm font-semibold text-gray-900">{product.nombre}</p>
+        <p className="truncate text-xs text-gray-500">{product.descripcion || "Sin descripción"}</p>
+
+        <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+          <div className="flex items-center gap-2 min-w-0">
+            <LineItemPrice unit={unit} original={original} hasDiscount={hasDiscount} />
+            {hasDiscount && (
+              <span className="rounded-full bg-green-50 px-2 py-0.5 text-[10px] font-semibold text-green-700">
+                Oferta
+              </span>
+            )}
+          </div>
+
+          {mode === "add" ? (
+            <div className="flex items-center gap-2 flex-wrap">
+              <QtyStepper value={quantity} onChange={onChangeQty} />
+              <Button type="button" className="px-3 py-2 shrink-0" onClick={() => onAdd(product, quantity)}>
+                Agregar
+              </Button>
+            </div>
+          ) : (
+            <Button type="button" variant="danger" className="px-3 py-2 shrink-0" onClick={() => onRemove(product)}>
+              Quitar
+            </Button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* ===================== Panel de sugerencias ===================== */
+function CommandSuggestionsPanel({
+  products,
+  mode,
+  totalResults,
+  quantity,
+  onChangeQty,
+  onAdd,
+  onRemove,
+  onClose,
+}: {
+  products: Product[];
+  mode: "add" | "remove";
+  totalResults: number;
+  quantity: number;
+  onChangeQty: (n: number) => void;
+  onAdd: (p: Product, qty: number) => void;
+  onRemove: (p: Product) => void;
+  onClose: () => void;
+}) {
+  return (
+    <div className="mt-3 overflow-hidden rounded-2xl border border-gray-100">
+      <div className="flex flex-wrap items-center justify-between gap-2 bg-gray-50 px-4 py-2">
+        <div className="flex items-center gap-2 text-sm">
+          <span className="rounded-full bg-white px-2 py-0.5 text-xs font-semibold text-gray-700">
+            {totalResults} resultado{totalResults === 1 ? "" : "s"}
+          </span>
+          <span className="text-gray-500">
+            {mode === "add" ? "Selecciona un producto para agregar" : "Selecciona un producto para quitar"}
+          </span>
+        </div>
+        <Button variant="ghost" className="px-3 py-1" onClick={onClose}>
+          Cerrar
+        </Button>
+      </div>
+
+      <div className="grid grid-cols-1 gap-3 p-3 sm:grid-cols-2 lg:grid-cols-3">
+        {products.slice(0, 9).map((p) => (
+          <SuggestionCard
+            key={p.id}
+            product={p}
+            mode={mode}
+            quantity={quantity}
+            onChangeQty={onChangeQty}
+            onAdd={onAdd}
+            onRemove={onRemove}
+          />
+        ))}
+      </div>
+
+      {products.length > 9 && (
+        <div className="border-t border-gray-100 bg-white px-4 py-2 text-center text-xs text-gray-500">
+          Mostrando 9 de {products.length}. Refina tu comando para ver menos resultados.
         </div>
       )}
     </div>
@@ -172,8 +286,10 @@ export default function Cart() {
   const navigate = useNavigate();
 
   const [commandInput, setCommandInput] = useState("");
-   const [commandFeedback, setCommandFeedback] = useState<string | null>(null);
+  const [commandFeedback, setCommandFeedback] = useState<string | null>(null);
   const [confirmRemoveId, setConfirmRemoveId] = useState<number | null>(null);
+
+  // Sugerencias visuales
   const [commandSuggestions, setCommandSuggestions] = useState<Product[]>([]);
   const [suggestionMode, setSuggestionMode] = useState<"add" | "remove" | null>(null);
   const [pendingQuantity, setPendingQuantity] = useState(1);
@@ -263,31 +379,12 @@ export default function Cart() {
           updateQuantity(product.id, quantity);
         }
       }
-      setCommandFeedback(
-        `Se agregó ${product.nombre} (${quantity}) al carrito vía ${fromVoice ? "voz" : "texto"}.`
-      );
+      setCommandFeedback(`Se agregó ${product.nombre} (${quantity}) al carrito vía ${fromVoice ? "voz" : "texto"}.`);
       setCommandSuggestions([]);
       setSuggestionMode(null);
       setPendingQuantity(1);
     },
     [addItem, items, updateQuantity]
-  );
-
-  const handleSuggestionSelection = useCallback(
-    (product: Product) => {
-      if (suggestionMode === "add") {
-        applyAddToCart(product, pendingQuantity, false);
-        return;
-      }
-      if (suggestionMode === "remove") {
-        removeItem(product.id);
-        setCommandFeedback(`Se eliminó ${product.nombre} del carrito.`);
-        setCommandSuggestions([]);
-        setSuggestionMode(null);
-        setPendingQuantity(1);
-      }
-    },
-    [applyAddToCart, pendingQuantity, removeItem, suggestionMode]
   );
 
   const interpretCommand = useCallback(
@@ -356,15 +453,7 @@ export default function Cart() {
           setPendingQuantity(usedQuantity);
           setSuggestionMode("add");
           setCommandSuggestions(candidates);
-          const preview = candidates
-            .slice(0, 5)
-            .map((p) => p.nombre)
-            .join(" - ");
-          setCommandFeedback(
-            `Encontré ${candidates.length} productos para "${searchLabel}". Elige uno de la lista: ${preview}${
-              candidates.length > 5 ? "..." : ""
-            }`
-          );
+          setCommandFeedback(`Encontré ${candidates.length} productos para "${searchLabel}". Selecciona uno.`);
           return;
         }
 
@@ -389,15 +478,7 @@ export default function Cart() {
         if (!product) {
           setSuggestionMode("remove");
           setCommandSuggestions(matches);
-          const preview = matches
-            .slice(0, 5)
-            .map((p) => p.nombre)
-            .join(" - ");
-          setCommandFeedback(
-            `Encontré ${matches.length} productos que coinciden con "${productNameRaw}". Selecciona uno de la lista: ${preview}${
-              matches.length > 5 ? "..." : ""
-            }`
-          );
+          setCommandFeedback(`Encontré ${matches.length} coincidencias. Selecciona cuál quieres eliminar.`);
           return;
         }
 
@@ -433,11 +514,24 @@ export default function Cart() {
     },
   });
 
+  // Acciones del panel
+  const handleAddFromPanel = (p: Product, qty: number) => {
+    applyAddToCart(p, qty, false);
+  };
+
+  const handleRemoveFromPanel = (p: Product) => {
+    removeItem(p.id);
+    setCommandFeedback(`Se eliminó ${p.nombre} del carrito.`);
+    setCommandSuggestions([]);
+    setSuggestionMode(null);
+    setPendingQuantity(1);
+  };
+
   /* ===================== Render ===================== */
   const progressLeft = Math.max(0, FREE_SHIPPING_THRESHOLD - totalAmount);
 
   return (
-    <section className="mx-auto max-w-6xl space-y-8">
+    <section className="mx-auto max-w-screen-xl px-4 sm:px-6 lg:px-8 overflow-x-hidden">
       {/* Header */}
       <header className="text-center">
         <h1 className="text-3xl font-semibold">Tu carrito</h1>
@@ -445,69 +539,79 @@ export default function Cart() {
       </header>
 
       {/* Voz + comandos */}
-      <Card className="p-5">
+      <Card className="p-5 mt-8">
         <div className="flex flex-wrap items-center justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <p className="text-lg font-semibold text-gray-800">Asistente de comandos</p>
             <p className="text-sm text-gray-500">Ejemplos: “agregar laptop 2”, “quitar auriculares”, “pagar”.</p>
           </div>
           <Button
             type="button"
             onClick={() => (isListening ? stopListening() : startListening())}
-            className="rounded-full"
+            className="rounded-full shrink-0"
             variant={isListening ? "danger" : "soft"}
             disabled={!isSupported}
           >
             {isSupported ? (isListening ? "Detener voz" : "Hablar") : "Voz no disponible"}
           </Button>
         </div>
-        <textarea
-          value={commandInput}
-          onChange={(e) => setCommandInput(e.target.value)}
-          placeholder="Escribe o dicta tu comando..."
-          className="mt-3 w-full rounded-xl border border-gray-200 px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary/40"
-          rows={3}
-        />
-        <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-sm">
-          <Button type="button" onClick={() => interpretCommand(commandInput)} disabled={!commandInput.trim()}>
-            Ejecutar comando
-          </Button>
-          {commandFeedback && <span className="text-gray-600">{commandFeedback}</span>}
-        </div>
-        {commandSuggestions.length > 0 && (
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-gray-700">
-            <span className="font-medium text-gray-500">Coincidencias:</span>
-            {commandSuggestions.slice(0, 6).map((product) => (
-              <Button
-                key={product.id}
-                variant="ghost"
-                className="border border-gray-200 px-3 py-1 text-xs font-semibold text-primary hover:border-primary"
-                onClick={() => handleSuggestionSelection(product)}
-              >
-                {product.nombre}
-              </Button>
-            ))}
-            {commandSuggestions.length > 6 && <span className="text-xs text-gray-400">Y más...</span>}
+
+        <div className="mt-3 rounded-2xl border border-gray-200 focus-within:ring-2 focus-within:ring-primary/30">
+          <textarea
+            value={commandInput}
+            onChange={(e) => setCommandInput(e.target.value)}
+            placeholder="Escribe o dicta tu comando... (Ej: agregar shampoo 3)"
+            className="w-full rounded-2xl px-4 py-3 text-sm outline-none"
+            rows={3}
+          />
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 px-4 py-2">
+            <Button type="button" onClick={() => interpretCommand(commandInput)} disabled={!commandInput.trim()}>
+              Ejecutar comando
+            </Button>
+            {commandFeedback && <span className="min-w-0 truncate text-sm text-gray-600">{commandFeedback}</span>}
           </div>
+        </div>
+
+        {/* Panel de sugerencias visual */}
+        {commandSuggestions.length > 0 && suggestionMode && (
+          <CommandSuggestionsPanel
+            products={commandSuggestions}
+            mode={suggestionMode}
+            totalResults={commandSuggestions.length}
+            quantity={pendingQuantity}
+            onChangeQty={setPendingQuantity}
+            onAdd={handleAddFromPanel}
+            onRemove={handleRemoveFromPanel}
+            onClose={() => {
+              setCommandSuggestions([]);
+              setSuggestionMode(null);
+            }}
+          />
         )}
+
         {!isSupported && (
           <p className="mt-2 text-xs text-yellow-600">Tu navegador no soporta reconocimiento de voz. Usa comandos de texto.</p>
         )}
       </Card>
 
+      {/* Error stripe */}
+      {/* Mantener fuera de grillas para evitar empujes de ancho */}
+      {/* y no generar overflows */}
       {checkoutMutation.isError && (
-        <div className="rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+        <div className="mt-4 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
           No pudimos iniciar el pago con Stripe. Intenta nuevamente en unos segundos.
         </div>
       )}
 
       {/* Contenido principal */}
       {!items.length ? (
-        <EmptyState />
+        <div className="mt-8">
+          <EmptyState />
+        </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-[1fr,380px]">
+        <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr),380px]">
           {/* Lista de items */}
-          <div className="space-y-4">
+          <div className="space-y-4 min-w-0">
             {cartSummary.map((item) => (
               <Card key={item.product.id} className="p-4">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center">
@@ -516,7 +620,7 @@ export default function Cart() {
 
                   {/* Info */}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-base font-semibold text-gray-900">{item.product.nombre}</p>
+                    <p className="truncate text-base font-semibold text-gray-900 break-words">{item.product.nombre}</p>
                     <p className="truncate text-sm text-gray-500">{item.product.descripcion || "Sin descripción"}</p>
                     {item.hasDiscount && (
                       <span className="mt-2 inline-block rounded-full bg-green-50 px-2 py-0.5 text-xs font-semibold text-green-700">
@@ -526,27 +630,26 @@ export default function Cart() {
                   </div>
 
                   {/* Controles */}
-                  <div className="flex flex-1 items-center justify-between gap-4 md:justify-end">
+                  <div className="flex flex-1 flex-wrap items-center justify-between gap-4 md:justify-end">
                     <QtyStepper value={item.quantity} onChange={(n) => updateQuantity(item.product.id, n)} />
                     <LineItemPrice unit={item.unitPrice} original={item.originalPrice} hasDiscount={item.hasDiscount} />
-                    <div className="text-right text-sm font-semibold text-gray-900 min-w-[90px]">
+                    <div className="min-w-[90px] text-right text-sm font-semibold text-gray-900 shrink-0">
                       {priceFormatter.format(item.total)}
                     </div>
+                    <Button
+                      type="button"
+                      variant="danger"
+                      className="self-start md:self-auto shrink-0"
+                      onClick={() => setConfirmRemoveId(item.product.id)}
+                    >
+                      Quitar
+                    </Button>
                   </div>
-
-                  <Button
-                    type="button"
-                    variant="danger"
-                    className="self-start md:self-auto"
-                    onClick={() => setConfirmRemoveId(item.product.id)}
-                  >
-                    Quitar
-                  </Button>
                 </div>
 
                 {/* Confirm remove */}
                 {confirmRemoveId === item.product.id && (
-                  <div className="mt-3 flex items-center justify-end gap-2 text-sm">
+                  <div className="mt-3 flex flex-wrap items-center justify-end gap-2 text-sm">
                     <span className="text-gray-500">¿Eliminar este producto?</span>
                     <Button variant="ghost" onClick={() => setConfirmRemoveId(null)}>Cancelar</Button>
                     <Button
@@ -571,7 +674,7 @@ export default function Cart() {
           </div>
 
           {/* Resumen */}
-          <div className="lg:sticky lg:top-6">
+          <div className="lg:sticky lg:top-6 min-w-0">
             <Card className="p-6">
               {/* Envío gratis */}
               {totalAmount < FREE_SHIPPING_THRESHOLD ? (
