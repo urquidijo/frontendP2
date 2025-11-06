@@ -136,6 +136,29 @@ function EmptyState() {
   );
 }
 
+/* ===================== Mini componente de imagen ===================== */
+function ProductThumb({ src, alt }: { src?: string | null; alt: string }) {
+  const [error, setError] = useState(false);
+  const showImg = !!src && !error;
+  return (
+    <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-gray-50">
+      {showImg ? (
+        <img
+          src={src!}
+          alt={alt}
+          loading="lazy"
+          className="h-full w-full object-cover"
+          onError={() => setError(true)}
+        />
+      ) : (
+        <div className="flex h-full w-full items-center justify-center text-xs text-gray-400">
+          Sin imagen
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ===================== Componente principal ===================== */
 export default function Cart() {
   const items = useCartStore((state) => state.items);
@@ -149,7 +172,7 @@ export default function Cart() {
   const navigate = useNavigate();
 
   const [commandInput, setCommandInput] = useState("");
-  const [commandFeedback, setCommandFeedback] = useState<string | null>(null);
+   const [commandFeedback, setCommandFeedback] = useState<string | null>(null);
   const [confirmRemoveId, setConfirmRemoveId] = useState<number | null>(null);
   const [commandSuggestions, setCommandSuggestions] = useState<Product[]>([]);
   const [suggestionMode, setSuggestionMode] = useState<"add" | "remove" | null>(null);
@@ -489,10 +512,7 @@ export default function Cart() {
               <Card key={item.product.id} className="p-4">
                 <div className="flex flex-col gap-4 md:flex-row md:items-center">
                   {/* Imagen */}
-                  <div className="h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-gray-50">
-                    {/* placeholder simple; si tienes imageUrl => usa <img src={...} /> */}
-                    <div className="flex h-full w-full items-center justify-center text-gray-300">IMG</div>
-                  </div>
+                  <ProductThumb src={item.product.imagen} alt={item.product.nombre} />
 
                   {/* Info */}
                   <div className="min-w-0 flex-1">
