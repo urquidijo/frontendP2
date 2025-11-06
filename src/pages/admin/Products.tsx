@@ -535,7 +535,7 @@ export default function AdminProducts() {
                     {/* Botón que abre el selector */}
                     <label
                       htmlFor="product-image-file"
-                      className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 px-9 py-2.5 text-sm font-semibold hover:bg-gray-100"
+                      className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 px-6 py-2.5 text-sm font-semibold hover:bg-gray-100"
                     >
                       Seleccionar archivo
                     </label>

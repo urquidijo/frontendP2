@@ -50,7 +50,7 @@ function Input(props: JSX.IntrinsicElements["input"]) {
   return (
     <input
       {...props}
-      className={`w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition ${props.className ?? ""}`}
+      className={`w-full min-w-0 rounded-xl border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition ${props.className ?? ""}`}
     />
   );
 }
@@ -59,14 +59,14 @@ function Select(props: JSX.IntrinsicElements["select"]) {
   return (
     <select
       {...props}
-      className={`w-full rounded-xl border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition ${props.className ?? ""}`}
+      className={`w-full min-w-0 rounded-xl border border-gray-200 px-3 py-2 text-sm focus:ring-2 focus:ring-primary/30 focus:border-primary outline-none transition ${props.className ?? ""}`}
     />
   );
 }
 
 function Button(
-  { children, variant = "solid", className = "", ...rest }:
-  JSX.IntrinsicElements["button"] & { variant?: "solid" | "soft" | "danger" | "ghost" }
+  { children, variant = "solid", className = "", full = false, size = "md", ...rest }:
+  JSX.IntrinsicElements["button"] & { variant?: "solid" | "soft" | "danger" | "ghost"; full?: boolean; size?: "sm" | "md" }
 ) {
   const variants = {
     solid: "bg-primary text-white hover:bg-primary/90",
@@ -74,10 +74,14 @@ function Button(
     danger: "bg-red-50 text-red-600 hover:bg-red-100",
     ghost: "bg-transparent text-gray-700 hover:bg-gray-50",
   } as const;
+  const sizes = {
+    sm: "px-3 py-1.5 text-xs rounded-xl",
+    md: "px-4 py-2 text-sm rounded-2xl",
+  } as const;
   return (
     <button
       {...rest}
-      className={`inline-flex items-center justify-center rounded-2xl px-4 py-2 text-sm font-semibold transition disabled:opacity-50 ${variants[variant]} ${className}`}
+      className={`inline-flex items-center justify-center font-semibold transition disabled:opacity-50 ${variants[variant]} ${sizes[size]} ${full ? "w-full" : ""} ${className}`}
     >
       {children}
     </button>
@@ -105,7 +109,7 @@ function Avatar({ name }: { name: string }) {
     .slice(0, 2)
     .toUpperCase();
   return (
-    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-600">
+    <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gray-100 text-sm font-semibold text-gray-600">
       {initials || "?"}
     </div>
   );
@@ -226,11 +230,11 @@ export default function AdminUsers() {
   return (
     <section className="space-y-6">
       {/* Header */}
-      <header className="overflow-hidden rounded-3xl border border-gray-100 bg-gradient-to-r from-white via-white to-primary/5 p-6">
+      <header className="overflow-hidden rounded-3xl border border-gray-100 bg-gradient-to-r from-white via-white to-primary/5 p-4 sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-          <div className="space-y-1">
+          <div className="space-y-1 min-w-0">
             <p className="text-xs font-semibold uppercase tracking-wide text-primary">Gestión de usuarios</p>
-            <h2 className="text-3xl font-semibold text-gray-900">Asigna roles y permisos</h2>
+            <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900">Asigna roles y permisos</h2>
             <p className="text-sm text-gray-500">Crea cuentas nuevas y controla el rol asignado a cada colaborador.</p>
           </div>
           <div className="flex items-center gap-3 text-sm text-gray-500">
@@ -249,7 +253,7 @@ export default function AdminUsers() {
       {/* Content */}
       {usersLoading ? (
         <div className="grid gap-6 lg:grid-cols-2">
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <div className="space-y-3">
               <Skeleton className="h-6 w-1/3" />
               <Skeleton className="h-10" />
@@ -260,7 +264,7 @@ export default function AdminUsers() {
               <Skeleton className="h-10" />
             </div>
           </Card>
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <Skeleton className="h-6 w-1/4" />
             <div className="mt-4 space-y-3">
               <Skeleton className="h-20" />
@@ -274,7 +278,7 @@ export default function AdminUsers() {
       ) : (
         <div className="grid gap-6 lg:grid-cols-2">
           {/* Formulario */}
-          <Card className="p-6">
+          <Card className="p-4 sm:p-6">
             <form onSubmit={handleUserSubmit} className="space-y-4">
               <div className="grid gap-4 sm:grid-cols-2">
                 <Field label="Usuario" htmlFor="user-name">
@@ -324,10 +328,10 @@ export default function AdminUsers() {
               </div>
 
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-end">
-                <Button type="reset" variant="ghost" onClick={() => setUserForm(blankUserForm)}>
+                <Button type="reset" variant="ghost" full onClick={() => setUserForm(blankUserForm)}>
                   Limpiar
                 </Button>
-                <Button type="submit" disabled={createUserMutation.isPending}>
+                <Button type="submit" full disabled={createUserMutation.isPending}>
                   {createUserMutation.isPending ? "Creando…" : "Crear usuario"}
                 </Button>
               </div>
@@ -336,12 +340,12 @@ export default function AdminUsers() {
 
           {/* Listado */}
           <Card className="p-0">
-            <div className="sticky top-0 z-10 rounded-t-3xl border-b border-gray-100 bg-white/90 p-6 backdrop-blur">
+            <div className="sticky top-0 z-10 rounded-t-3xl border-b border-gray-100 bg-white/90 p-4 sm:p-6 backdrop-blur">
               <h3 className="text-base font-semibold text-gray-900">Usuarios creados</h3>
               <p className="text-sm text-gray-500">Usa los selectores para cambiar el rol.</p>
             </div>
 
-            <div className="max-h-[560px] overflow-auto p-4 sm:p-6">
+            <div className="max-h-[60vh] md:max-h-[70vh] overflow-auto p-3 sm:p-6">
               {!users?.length ? (
                 <div className="flex flex-col items-center justify-center gap-2 rounded-2xl border border-dashed border-gray-200 p-10 text-center">
                   <div className="text-3xl">👥</div>
@@ -353,13 +357,13 @@ export default function AdminUsers() {
                   {users.map((user) => {
                     const draftValue = userRoleDrafts[user.id] ?? (user.rol ? String(user.rol) : "");
                     return (
-                      <li key={user.id} className="rounded-2xl border border-gray-100 p-4 text-sm transition hover:shadow">
-                        <div className="flex items-start justify-between gap-3">
+                      <li key={user.id} className="rounded-2xl border border-gray-100 p-3 sm:p-4 text-sm transition hover:shadow">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                           <div className="min-w-0 flex items-center gap-3">
                             <Avatar name={user.username || user.email} />
                             <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-gray-900">{user.username}</p>
-                              <p className="truncate text-gray-500">{user.email}</p>
+                              <p className="truncate text-sm font-semibold text-gray-900" title={user.username}>{user.username}</p>
+                              <p className="truncate text-gray-500" title={user.email}>{user.email}</p>
                               <div className="mt-1 text-xs text-gray-500">
                                 <span className="rounded-full bg-gray-100 px-2 py-0.5 font-medium text-gray-700">Rol: {user.rol_nombre ?? "Sin rol"}</span>
                                 {user.permisos?.length ? (
@@ -368,7 +372,7 @@ export default function AdminUsers() {
                               </div>
                             </div>
                           </div>
-                          <span className="shrink-0 text-[10px] uppercase tracking-wide text-gray-400">ID #{user.id}</span>
+                          <span className="sm:self-start shrink-0 text-[10px] uppercase tracking-wide text-gray-400">ID #{user.id}</span>
                         </div>
 
                         <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -380,10 +384,12 @@ export default function AdminUsers() {
                               </option>
                             ))}
                           </Select>
-                          <div className="grid grid-cols-2 gap-2">
+                          <div className="grid grid-cols-1 xs:grid-cols-2 gap-2">
                             <Button
                               type="button"
                               variant="soft"
+                              size="sm"
+                              full
                               disabled={!!updateUserMutation.isPending}
                               onClick={() => handleUserRoleSave(user.id)}
                             >
@@ -392,6 +398,8 @@ export default function AdminUsers() {
                             <Button
                               type="button"
                               variant="danger"
+                              size="sm"
+                              full
                               disabled={!!deleteUserMutation.isPending}
                               onClick={() => deleteUserMutation.mutate(user.id)}
                             >

@@ -29,9 +29,7 @@ export default function AdminInvoices() {
   const filteredInvoices = useMemo(() => {
     const term = invoiceSearch.trim().toLowerCase();
     const allInvoices = invoices ?? [];
-    if (!term) {
-      return allInvoices;
-    }
+    if (!term) return allInvoices;
     return allInvoices.filter((invoice) => {
       const cliente =
         userLookup.get(invoice.usuario ?? 0)?.toLowerCase() ??
@@ -42,12 +40,16 @@ export default function AdminInvoices() {
     });
   }, [invoiceSearch, invoices, userLookup]);
 
+  const formatDate = (value: string | Date) =>
+    new Date(value).toLocaleDateString("es-MX", { dateStyle: "medium" });
+
   return (
     <section className="space-y-6">
-      <header className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-        <div>
+      {/* Header responsive */}
+      <header className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+        <div className="min-w-0">
           <p className="text-sm font-medium text-primary">Facturas</p>
-          <h2 className="text-3xl font-semibold text-gray-900">Historial global</h2>
+          <h2 className="text-2xl sm:text-3xl font-semibold text-gray-900">Historial global</h2>
           <p className="text-sm text-gray-500">
             Visualiza todas las facturas emitidas a tus clientes y su estado en Stripe.
           </p>
@@ -61,11 +63,12 @@ export default function AdminInvoices() {
             className="w-full rounded-2xl border border-gray-200 px-4 py-2 text-sm focus:border-primary focus:outline-none sm:max-w-xs"
           />
           <span className="text-sm text-gray-500 sm:text-right">
-            Los datos se sincronizan automaticamente.
+            Los datos se sincronizan automáticamente.
           </span>
         </div>
       </header>
 
+      {/* Estados */}
       {invoicesLoading ? (
         <div className="rounded-3xl border border-gray-100 bg-white p-6 shadow-sm">
           <p className="text-gray-500">Cargando facturas...</p>
@@ -78,60 +81,112 @@ export default function AdminInvoices() {
         <div className="rounded-3xl border border-gray-100 bg-white p-6 text-sm text-gray-500 shadow-sm">
           {invoiceSearch.trim()
             ? "No encontramos facturas con ese criterio."
-            : "Aun no hay facturas registradas."}
+            : "Aún no hay facturas registradas."}
         </div>
       ) : (
-        <div className="overflow-auto rounded-3xl border border-gray-100 bg-white shadow-sm">
-          <table className="min-w-full divide-y divide-gray-100 text-sm">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-2 text-left font-medium text-gray-500">Factura</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-500">Cliente</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-500">Total</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-500">Estado</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-500">Fecha</th>
-                <th className="px-4 py-2 text-left font-medium text-gray-500">Enlace</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100 bg-white">
-              {filteredInvoices.map((invoice: Invoice) => (
-                <tr key={invoice.id}>
-                  <td className="px-4 py-3 font-semibold text-gray-900">
-                    {invoice.stripe_invoice_id}
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {userLookup.get(invoice.usuario ?? 0) ??
-                      `Usuario #${invoice.usuario ?? "N/A"}`}
-                  </td>
-                  <td className="px-4 py-3 text-gray-900">
-                    {currencyFormatter.format(Number(invoice.amount_total))}
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusPill status={invoice.status} />
-                  </td>
-                  <td className="px-4 py-3 text-gray-500">
-                    {new Date(invoice.created_at).toLocaleDateString("es-MX", {
-                      dateStyle: "medium",
-                    })}
-                  </td>
-                  <td className="px-4 py-3">
-                    {invoice.hosted_invoice_url ? (
-                      <a
-                        href={invoice.hosted_invoice_url}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="text-primary hover:underline"
-                      >
-                        Ver
-                      </a>
-                    ) : (
-                      <span className="text-xs text-gray-400">Sin enlace</span>
-                    )}
-                  </td>
+        <div className="rounded-3xl border border-gray-100 bg-white shadow-sm">
+          {/* Tabla en ≥ md */}
+          <div className="hidden md:block overflow-auto rounded-3xl">
+            <table className="min-w-full divide-y divide-gray-100 text-sm">
+              <thead className="bg-gray-50">
+                <tr>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Factura</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Cliente</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Total</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Estado</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Fecha</th>
+                  <th className="px-4 py-2 text-left font-medium text-gray-500">Enlace</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody className="divide-y divide-gray-100 bg-white">
+                {filteredInvoices.map((invoice: Invoice) => (
+                  <tr key={invoice.id} className="hover:bg-gray-50/50">
+                    <td className="px-4 py-3 font-semibold text-gray-900">
+                      <span className="inline-block max-w-[200px] truncate align-bottom" title={invoice.stripe_invoice_id}>
+                        {invoice.stripe_invoice_id}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">
+                      <span className="inline-block max-w-[220px] truncate align-bottom" title={userLookup.get(invoice.usuario ?? 0) ?? `Usuario #${invoice.usuario ?? "N/A"}`}>
+                        {userLookup.get(invoice.usuario ?? 0) ?? `Usuario #${invoice.usuario ?? "N/A"}`}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-gray-900">
+                      {currencyFormatter.format(Number(invoice.amount_total))}
+                    </td>
+                    <td className="px-4 py-3">
+                      <StatusPill status={invoice.status} />
+                    </td>
+                    <td className="px-4 py-3 text-gray-500">{formatDate(invoice.created_at)}</td>
+                    <td className="px-4 py-3">
+                      {invoice.hosted_invoice_url ? (
+                        <a
+                          href={invoice.hosted_invoice_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          Ver
+                        </a>
+                      ) : (
+                        <span className="text-xs text-gray-400">Sin enlace</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Lista tipo tarjeta en < md */}
+          <ul className="md:hidden divide-y divide-gray-100">
+            {filteredInvoices.map((invoice: Invoice) => {
+              const cliente = userLookup.get(invoice.usuario ?? 0) ?? `Usuario #${invoice.usuario ?? "N/A"}`;
+              return (
+                <li key={invoice.id} className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-wide text-gray-400">Factura</p>
+                      <p className="truncate font-semibold text-gray-900" title={invoice.stripe_invoice_id}>
+                        {invoice.stripe_invoice_id}
+                      </p>
+                    </div>
+                    <StatusPill status={invoice.status} />
+                  </div>
+
+                  <div className="mt-3 grid grid-cols-2 gap-3 text-sm">
+                    <div className="min-w-0">
+                      <p className="text-xs uppercase tracking-wide text-gray-400">Cliente</p>
+                      <p className="truncate text-gray-700" title={cliente}>{cliente}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-400">Total</p>
+                      <p className="font-medium text-gray-900">{currencyFormatter.format(Number(invoice.amount_total))}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-400">Fecha</p>
+                      <p className="text-gray-700">{formatDate(invoice.created_at)}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs uppercase tracking-wide text-gray-400">Enlace</p>
+                      {invoice.hosted_invoice_url ? (
+                        <a
+                          href={invoice.hosted_invoice_url}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="text-primary hover:underline"
+                        >
+                          Ver factura
+                        </a>
+                      ) : (
+                        <span className="text-xs text-gray-400">Sin enlace</span>
+                      )}
+                    </div>
+                  </div>
+                </li>
+              );
+            })}
+          </ul>
         </div>
       )}
     </section>
