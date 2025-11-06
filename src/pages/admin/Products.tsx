@@ -12,7 +12,14 @@ import {
 } from "../../api";
 import { currencyFormatter } from "./shared";
 import { invalidateCacheKeys } from "../../core/offlineCache";
-import { Loader2, Search, Image as ImageIcon, Pencil, Trash2, X } from "lucide-react";
+import {
+  Loader2,
+  Search,
+  Image as ImageIcon,
+  Pencil,
+  Trash2,
+  X,
+} from "lucide-react";
 
 /* ===================== Tipos y estado ===================== */
 type ProductFormState = {
@@ -53,11 +60,15 @@ function useDebounced<T>(value: T, delay = 350) {
 }
 
 export default function AdminProducts() {
-  const [productForm, setProductForm] = useState<ProductFormState>(blankProductForm);
+  const [productForm, setProductForm] =
+    useState<ProductFormState>(blankProductForm);
   const [fileInputResetKey, setFileInputResetKey] = useState(0);
   const [editingProductId, setEditingProductId] = useState<number | null>(null);
   const [productFeedback, setProductFeedback] = useState<string | null>(null);
-  const [confirmDelete, setConfirmDelete] = useState<{ id: number; name: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{
+    id: number;
+    name: string;
+  } | null>(null);
   const [query, setQuery] = useState("");
   const [sortBy, setSortBy] = useState<"nombre" | "stock" | "precio">("nombre");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -87,14 +98,21 @@ export default function AdminProducts() {
   };
 
   const productMutation = useMutation({
-    mutationFn: ({ id, payload }: { id: number | null; payload: ProductPayload }) =>
-      id ? updateProduct(id, payload) : createProduct(payload),
+    mutationFn: ({
+      id,
+      payload,
+    }: {
+      id: number | null;
+      payload: ProductPayload;
+    }) => (id ? updateProduct(id, payload) : createProduct(payload)),
     onMutate: () => setProductFeedback(null),
     onSuccess: async (_, variables) => {
       clearProductCaches();
       await refetchProducts();
       setProductFeedback(
-        variables.id ? "Producto actualizado correctamente." : "Producto creado correctamente."
+        variables.id
+          ? "Producto actualizado correctamente."
+          : "Producto creado correctamente."
       );
       setProductForm(blankProductForm);
       setEditingProductId(null);
@@ -131,21 +149,28 @@ export default function AdminProducts() {
 
     const descripcion = productForm.descripcion.trim();
     if (descripcion) payload.descripcion = descripcion;
-    else if (editingProductId && productForm.descripcion === "") payload.descripcion = "";
+    else if (editingProductId && productForm.descripcion === "")
+      payload.descripcion = "";
 
     const lowStockValue = Number(productForm.low_stock_threshold);
-    if (!Number.isNaN(lowStockValue) && productForm.low_stock_threshold !== undefined) {
+    if (
+      !Number.isNaN(lowStockValue) &&
+      productForm.low_stock_threshold !== undefined
+    ) {
       payload.low_stock_threshold = lowStockValue;
     }
 
-    if (productForm.categoria_id) payload.categoria_id = Number(productForm.categoria_id);
-    else if (editingProductId && productForm.categoria_id === "") payload.categoria_id = null;
+    if (productForm.categoria_id)
+      payload.categoria_id = Number(productForm.categoria_id);
+    else if (editingProductId && productForm.categoria_id === "")
+      payload.categoria_id = null;
 
     const imagenUrl = productForm.imagen.trim();
     if (imagenUrl) payload.imagen = imagenUrl;
     else if (editingProductId && productForm.imagen === "") payload.imagen = "";
 
-    if (productForm.imagen_archivo) payload.imagen_archivo = productForm.imagen_archivo;
+    if (productForm.imagen_archivo)
+      payload.imagen_archivo = productForm.imagen_archivo;
 
     productMutation.mutate({ id: editingProductId, payload });
   };
@@ -200,9 +225,15 @@ export default function AdminProducts() {
       {/* Header */}
       <header className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <p className="text-xs font-medium text-primary">Gestión de productos</p>
-          <h2 className="text-3xl font-semibold tracking-tight">Controla stock y precios</h2>
-          <p className="text-sm text-gray-500">Crea, edita y elimina productos sin salir del panel.</p>
+          <p className="text-xs font-medium text-primary">
+            Gestión de productos
+          </p>
+          <h2 className="text-3xl font-semibold tracking-tight">
+            Controla stock y precios
+          </h2>
+          <p className="text-sm text-gray-500">
+            Crea, edita y elimina productos sin salir del panel.
+          </p>
         </div>
 
         <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
@@ -227,9 +258,14 @@ export default function AdminProducts() {
       {/* Feedback banner */}
       {productFeedback && (
         <div className="flex items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">
-          <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600/10">✅</span>
+          <span className="mt-0.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-600/10">
+            ✅
+          </span>
           <div className="flex-1 min-w-0">{productFeedback}</div>
-          <button onClick={() => setProductFeedback(null)} className="text-emerald-700/70 hover:text-emerald-900">
+          <button
+            onClick={() => setProductFeedback(null)}
+            className="text-emerald-700/70 hover:text-emerald-900"
+          >
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -258,19 +294,32 @@ export default function AdminProducts() {
                   {editingProductId ? "Editar producto" : "Nuevo producto"}
                 </h3>
                 <p className="text-xs text-gray-500">
-                  Completa la información del producto. Los campos se pueden dejar vacíos si no aplican.
+                  Completa la información del producto. Los campos se pueden
+                  dejar vacíos si no aplican.
                 </p>
               </div>
-              {productMutation.isPending && <Loader2 className="h-4 w-4 animate-spin text-primary" />}
+              {productMutation.isPending && (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              )}
             </div>
 
             {/* Nombre */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700" htmlFor="product-name">Nombre</label>
+              <label
+                className="text-sm font-medium text-gray-700"
+                htmlFor="product-name"
+              >
+                Nombre
+              </label>
               <input
                 id="product-name"
                 value={productForm.nombre}
-                onChange={(e) => setProductForm((prev) => ({ ...prev, nombre: e.target.value }))}
+                onChange={(e) =>
+                  setProductForm((prev) => ({
+                    ...prev,
+                    nombre: e.target.value,
+                  }))
+                }
                 placeholder="Ej. Laptop 15.6"
                 className="w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-sm outline-none transition focus:border-primary"
               />
@@ -279,30 +328,54 @@ export default function AdminProducts() {
             {/* Datos principales */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2 min-w-0">
-                <label className="text-sm font-medium text-gray-700" htmlFor="product-category">Categoría</label>
+                <label
+                  className="text-sm font-medium text-gray-700"
+                  htmlFor="product-category"
+                >
+                  Categoría
+                </label>
                 <select
                   id="product-category"
                   value={productForm.categoria_id}
                   disabled={categoriesQuery.isLoading}
-                  onChange={(e) => setProductForm((prev) => ({ ...prev, categoria_id: e.target.value }))}
+                  onChange={(e) =>
+                    setProductForm((prev) => ({
+                      ...prev,
+                      categoria_id: e.target.value,
+                    }))
+                  }
                   className="w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-sm outline-none transition focus:border-primary disabled:opacity-50"
                 >
                   <option value="">Sin categoría</option>
                   {categoriesQuery.data?.map((c) => (
-                    <option key={c.id} value={c.id}>{c.nombre}</option>
+                    <option key={c.id} value={c.id}>
+                      {c.nombre}
+                    </option>
                   ))}
                 </select>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700" htmlFor="product-price">Precio</label>
+                <label
+                  className="text-sm font-medium text-gray-700"
+                  htmlFor="product-price"
+                >
+                  Precio
+                </label>
                 <div className="relative">
-                  <span className="pointer-events-none absolute left-4 top-2.5 text-xs text-gray-500">$</span>
+                  <span className="pointer-events-none absolute left-4 top-2.5 text-xs text-gray-500">
+                    $
+                  </span>
                   <input
                     id="product-price"
                     type="number"
                     step="0.01"
                     value={productForm.precio}
-                    onChange={(e) => setProductForm((prev) => ({ ...prev, precio: e.target.value }))}
+                    onChange={(e) =>
+                      setProductForm((prev) => ({
+                        ...prev,
+                        precio: e.target.value,
+                      }))
+                    }
                     className="w-full rounded-2xl border border-gray-200 px-7 py-2.5 text-sm outline-none transition focus:border-primary"
                   />
                 </div>
@@ -312,24 +385,44 @@ export default function AdminProducts() {
             {/* Stock y umbral */}
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700" htmlFor="product-stock">Stock</label>
+                <label
+                  className="text-sm font-medium text-gray-700"
+                  htmlFor="product-stock"
+                >
+                  Stock
+                </label>
                 <input
                   id="product-stock"
                   type="number"
                   min={0}
                   value={productForm.stock}
-                  onChange={(e) => setProductForm((prev) => ({ ...prev, stock: Number(e.target.value) || 0 }))}
+                  onChange={(e) =>
+                    setProductForm((prev) => ({
+                      ...prev,
+                      stock: Number(e.target.value) || 0,
+                    }))
+                  }
                   className="w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-sm outline-none transition focus:border-primary"
                 />
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium text-gray-700" htmlFor="product-threshold">Alerta stock</label>
+                <label
+                  className="text-sm font-medium text-gray-700"
+                  htmlFor="product-threshold"
+                >
+                  Alerta stock
+                </label>
                 <input
                   id="product-threshold"
                   type="number"
                   min={0}
                   value={productForm.low_stock_threshold}
-                  onChange={(e) => setProductForm((prev) => ({ ...prev, low_stock_threshold: Number(e.target.value) || 0 }))}
+                  onChange={(e) =>
+                    setProductForm((prev) => ({
+                      ...prev,
+                      low_stock_threshold: Number(e.target.value) || 0,
+                    }))
+                  }
                   className="w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-sm outline-none transition focus:border-primary"
                 />
               </div>
@@ -337,12 +430,22 @@ export default function AdminProducts() {
 
             {/* Descripción */}
             <div className="space-y-2">
-              <label className="text-sm font-medium text-gray-700" htmlFor="product-description">Descripción</label>
+              <label
+                className="text-sm font-medium text-gray-700"
+                htmlFor="product-description"
+              >
+                Descripción
+              </label>
               <textarea
                 id="product-description"
                 rows={4}
                 value={productForm.descripcion}
-                onChange={(e) => setProductForm((prev) => ({ ...prev, descripcion: e.target.value }))}
+                onChange={(e) =>
+                  setProductForm((prev) => ({
+                    ...prev,
+                    descripcion: e.target.value,
+                  }))
+                }
                 placeholder="Detalles breves del producto"
                 className="w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-sm outline-none transition focus:border-primary"
               />
@@ -350,7 +453,9 @@ export default function AdminProducts() {
 
             {/* ===== Imagen (URL / archivo) — movido abajo y a prueba de desbordes ===== */}
             <div className="space-y-4">
-              <h4 className="text-sm font-semibold text-gray-800">Imagen del producto</h4>
+              <h4 className="text-sm font-semibold text-gray-800">
+                Imagen del producto
+              </h4>
 
               {/* Preview centrada */}
               <div className="flex gap-4 sm:gap-5">
@@ -362,7 +467,11 @@ export default function AdminProducts() {
                       className="h-full w-full object-cover"
                     />
                   ) : productForm.imagen ? (
-                    <img src={productForm.imagen} alt="preview" className="h-full w-full object-cover" />
+                    <img
+                      src={productForm.imagen}
+                      alt="preview"
+                      className="h-full w-full object-cover"
+                    />
                   ) : (
                     <ImageIcon className="h-7 w-7 text-gray-400" />
                   )}
@@ -371,14 +480,22 @@ export default function AdminProducts() {
                 <div className="grid w-full min-w-0 gap-3">
                   {/* URL */}
                   <div className="space-y-2 min-w-0">
-                    <label className="text-sm font-medium text-gray-700" htmlFor="product-image">
+                    <label
+                      className="text-sm font-medium text-gray-700"
+                      htmlFor="product-image"
+                    >
                       Imagen (URL)
                     </label>
                     <input
                       id="product-image"
                       type="url"
                       value={productForm.imagen}
-                      onChange={(e) => setProductForm((prev) => ({ ...prev, imagen: e.target.value }))}
+                      onChange={(e) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          imagen: e.target.value,
+                        }))
+                      }
                       placeholder="https://…"
                       className="w-full rounded-2xl border border-gray-200 px-4 py-2.5 text-sm outline-none transition focus:border-primary font-mono"
                     />
@@ -395,30 +512,33 @@ export default function AdminProducts() {
 
                   {/* Archivo */}
                   <div className="space-y-2 min-w-0">
-                    <label className="block text-sm font-medium text-gray-700" htmlFor="product-image-file">
+                    <label
+                      className="block text-sm font-medium text-gray-700"
+                      htmlFor="product-image-file"
+                    >
                       o subir archivo
                     </label>
-<input
-    key={fileInputResetKey}
-    id="product-image-file"
-    type="file"
-    accept="image/*"
-    onChange={(e) =>
-      setProductForm((prev) => ({
-        ...prev,
-        imagen_archivo: e.target.files?.[0] ?? null,
-      }))
-    }
-    className="sr-only"
-  />
+                    <input
+                      key={fileInputResetKey}
+                      id="product-image-file"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          imagen_archivo: e.target.files?.[0] ?? null,
+                        }))
+                      }
+                      className="sr-only"
+                    />
 
-  {/* Botón que abre el selector */}
-  <label
-    htmlFor="product-image-file"
-    className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 px-9 py-2.5 text-sm font-semibold hover:bg-gray-100"
-  >
-    Seleccionar archivo
-  </label>
+                    {/* Botón que abre el selector */}
+                    <label
+                      htmlFor="product-image-file"
+                      className="inline-flex cursor-pointer items-center justify-center rounded-2xl border border-gray-200 bg-gray-50 px-9 py-2.5 text-sm font-semibold hover:bg-gray-100"
+                    >
+                      Seleccionar archivo
+                    </label>
                     {productForm.imagen_archivo && (
                       <div
                         className="rounded-xl bg-gray-50 p-2 text-[11px] leading-4 text-gray-600 break-all"
@@ -439,7 +559,11 @@ export default function AdminProducts() {
                 disabled={productMutation.isPending}
                 className="flex-1 rounded-2xl bg-primary px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-primary/90 disabled:opacity-50"
               >
-                {productMutation.isPending ? "Guardando..." : editingProductId ? "Guardar cambios" : "Agregar producto"}
+                {productMutation.isPending
+                  ? "Guardando..."
+                  : editingProductId
+                  ? "Guardar cambios"
+                  : "Agregar producto"}
               </button>
               {editingProductId && (
                 <button
@@ -447,19 +571,20 @@ export default function AdminProducts() {
                   onClick={resetForm}
                   className="rounded-2xl border border-gray-200 px-5 py-2.5 text-sm font-semibold text-gray-700 hover:bg-gray-50"
                 >
-                Cancelar
+                  Cancelar
                 </button>
               )}
             </div>
           </form>
 
           {/* Listado (SIN CAMBIOS relevantes) */}
-          <div className="overflow-hidden rounded-3xl border border-gray-100 bg-white">
+          <div className="overflow-x-auto rounded-3xl border border-gray-100 bg-white">
             {filteredSorted && filteredSorted.length ? (
               <div className="relative">
                 <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
                   <div className="text-sm text-gray-600">
-                    {filteredSorted.length} producto{filteredSorted.length === 1 ? "" : "s"}
+                    {filteredSorted.length} producto
+                    {filteredSorted.length === 1 ? "" : "s"}
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <span className="text-gray-500">Ordenar por</span>
@@ -473,7 +598,9 @@ export default function AdminProducts() {
                       <option value="precio">Precio</option>
                     </select>
                     <button
-                      onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
+                      onClick={() =>
+                        setSortDir((d) => (d === "asc" ? "desc" : "asc"))
+                      }
                       className="rounded-xl border border-gray-200 px-2 py-1 text-xs hover:bg-gray-50"
                       title="Invertir orden"
                     >
@@ -482,15 +609,27 @@ export default function AdminProducts() {
                   </div>
                 </div>
 
-                <table className="min-w-full divide-y divide-gray-100 text-sm">
+                <table className="min-w-[860px] w-full table-fixed divide-y divide-gray-100 text-sm">
                   <thead className="bg-gray-50">
                     <tr>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500">Producto</th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500">Categoría</th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500">Stock</th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500">Umbral</th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500">Precio</th>
-                      <th className="px-4 py-2 text-left font-medium text-gray-500">Acciones</th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-500 w-[42%]">
+                        Producto
+                      </th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-500 w-[18%]">
+                        Categoría
+                      </th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-500 w-[10%]">
+                        Stock
+                      </th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-500 w-[10%]">
+                        Umbral
+                      </th>
+                      <th className="px-4 py-2 text-left font-medium text-gray-500 w-[10%]">
+                        Precio
+                      </th>
+                      <th className="px-4 py-2 text-right font-medium text-gray-500 w-40">
+                        Acciones
+                      </th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100 bg-white">
@@ -499,7 +638,10 @@ export default function AdminProducts() {
                         (product.low_stock_threshold ?? 0) > 0 &&
                         product.stock <= (product.low_stock_threshold ?? 0);
                       return (
-                        <tr key={product.id} className={cx(isLow && "bg-red-50/40")}>
+                        <tr
+                          key={product.id}
+                          className={cx(isLow && "bg-red-50/40")}
+                        >
                           <td className="px-4 py-3">
                             <div className="flex items-center gap-3 min-w-0">
                               <div className="h-10 w-10 overflow-hidden rounded-lg border border-gray-200 bg-gray-50 shrink-0">
@@ -516,7 +658,10 @@ export default function AdminProducts() {
                                 )}
                               </div>
                               <div className="min-w-0">
-                                <div className="font-semibold text-gray-900 truncate" title={product.nombre}>
+                                <div
+                                  className="font-semibold text-gray-900 truncate max-w-[28rem]"
+                                  title={product.nombre}
+                                >
                                   {product.nombre}
                                 </div>
                                 {product.descripcion && (
@@ -536,32 +681,47 @@ export default function AdminProducts() {
                             <span
                               className={cx(
                                 "inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold",
-                                isLow ? "bg-red-100 text-red-700" : "bg-emerald-100 text-emerald-700"
+                                isLow
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-emerald-100 text-emerald-700"
                               )}
                             >
                               {product.stock}
                             </span>
                           </td>
-                          <td className="px-4 py-3 text-gray-900">{product.low_stock_threshold ?? 0}</td>
+                          <td className="px-4 py-3 text-gray-900">
+                            {product.low_stock_threshold ?? 0}
+                          </td>
                           <td className="px-4 py-3 text-gray-900">
                             {currencyFormatter.format(Number(product.precio))}
                           </td>
-                          <td className="px-4 py-3">
-                            <div className="flex flex-wrap gap-2">
+                          <td className="px-4 py-3 w-40 text-right">
+                            <div className="inline-flex gap-2 flex-nowrap">
                               <button
                                 type="button"
                                 onClick={() => handleProductEdit(product)}
                                 className="inline-flex items-center gap-1 rounded-xl bg-primary/10 px-3 py-1 text-xs font-semibold text-primary hover:bg-primary/20"
+                                title="Editar"
                               >
-                                <Pencil className="h-3.5 w-3.5" /> Editar
+                                <Pencil className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">Editar</span>
                               </button>
                               <button
                                 type="button"
-                                onClick={() => setConfirmDelete({ id: product.id, name: product.nombre })}
+                                onClick={() =>
+                                  setConfirmDelete({
+                                    id: product.id,
+                                    name: product.nombre,
+                                  })
+                                }
                                 disabled={deleteProductMutation.isPending}
                                 className="inline-flex items-center gap-1 rounded-xl bg-red-50 px-3 py-1 text-xs font-semibold text-red-600 hover:bg-red-100 disabled:opacity-50"
+                                title="Eliminar"
                               >
-                                <Trash2 className="h-3.5 w-3.5" /> Eliminar
+                                <Trash2 className="h-3.5 w-3.5" />
+                                <span className="hidden sm:inline">
+                                  Eliminar
+                                </span>
                               </button>
                             </div>
                           </td>
@@ -577,9 +737,13 @@ export default function AdminProducts() {
                   <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-gray-100">
                     <ImageIcon className="h-6 w-6 text-gray-400" />
                   </div>
-                  <h4 className="text-base font-semibold">Aún no hay productos</h4>
+                  <h4 className="text-base font-semibold">
+                    Aún no hay productos
+                  </h4>
                   <p className="text-sm text-gray-500">
-                    Crea tu primer producto desde el formulario izquierdo. También puedes importar datos desde tu backend si ya existen.
+                    Crea tu primer producto desde el formulario izquierdo.
+                    También puedes importar datos desde tu backend si ya
+                    existen.
                   </p>
                 </div>
               </div>
@@ -591,11 +755,16 @@ export default function AdminProducts() {
       {/* Modal de confirmación */}
       {confirmDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmDelete(null)} />
+          <div
+            className="absolute inset-0 bg-black/40"
+            onClick={() => setConfirmDelete(null)}
+          />
           <div className="relative w-full max-w-sm rounded-2xl bg-white p-5 shadow-lg">
             <h4 className="text-base font-semibold">Eliminar producto</h4>
             <p className="mt-1 text-sm text-gray-600">
-              ¿Seguro que deseas eliminar <span className="font-semibold">{confirmDelete.name}</span>? Esta acción no se puede deshacer.
+              ¿Seguro que deseas eliminar{" "}
+              <span className="font-semibold">{confirmDelete.name}</span>? Esta
+              acción no se puede deshacer.
             </p>
             <div className="mt-4 flex items-center justify-end gap-2">
               <button
