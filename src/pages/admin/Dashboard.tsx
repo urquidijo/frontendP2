@@ -1,3 +1,4 @@
+
 import { useMemo } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Boxes, FileText, Package, Users2 } from "lucide-react";
@@ -13,7 +14,7 @@ import {
   Bar,
 } from "recharts";
 import {
-  fetchAllInvoices,
+  fetchInvoiceSummary,
   fetchProducts,
   fetchSalesHistory,
   fetchSalesPredictions,
@@ -32,9 +33,9 @@ export default function AdminDashboard() {
     queryFn: fetchProducts,
   });
 
-  const invoicesQuery = useQuery({
-    queryKey: ["facturas-admin"],
-    queryFn: fetchAllInvoices,
+  const invoiceSummaryQuery = useQuery({
+    queryKey: ["facturas-resumen"],
+    queryFn: fetchInvoiceSummary,
   });
 
   const historyQuery = useQuery({
@@ -52,14 +53,9 @@ export default function AdminDashboard() {
     [productsQuery.data]
   );
 
-  const totalRevenue = useMemo(
-    () =>
-      (invoicesQuery.data ?? []).reduce(
-        (sum, invoice) => sum + Number(invoice.amount_total),
-        0
-      ),
-    [invoicesQuery.data]
-  );
+  const invoiceTotals = invoiceSummaryQuery.data;
+  const invoiceCount = invoiceTotals?.count ?? 0;
+  const totalRevenue = invoiceTotals?.amount_total ?? 0;
 
   const summaryCards = useMemo(
     () => [
@@ -84,11 +80,11 @@ export default function AdminDashboard() {
       {
         label: "Facturacion",
         value: currencyFormatter.format(totalRevenue),
-        helper: `${invoicesQuery.data?.length ?? 0} facturas`,
+        helper: `${invoiceCount} facturas`,
         icon: FileText,
       },
     ],
-    [usersQuery.data, productsQuery.data, totalStock, totalRevenue, invoicesQuery.data]
+    [usersQuery.data, productsQuery.data, totalStock, totalRevenue, invoiceCount]
   );
 
   const chartData = useMemo(() => {
@@ -113,9 +109,9 @@ export default function AdminDashboard() {
   }, [historyQuery.data, predictionsQuery.data]);
 
   const isSummaryLoading =
-    usersQuery.isLoading || productsQuery.isLoading || invoicesQuery.isLoading;
+    usersQuery.isLoading || productsQuery.isLoading || invoiceSummaryQuery.isLoading;
   const summaryError =
-    usersQuery.isError || productsQuery.isError || invoicesQuery.isError;
+    usersQuery.isError || productsQuery.isError || invoiceSummaryQuery.isError;
 
   const predictionsMetadata = predictionsQuery.data?.metadata;
 

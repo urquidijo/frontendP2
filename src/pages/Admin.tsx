@@ -9,6 +9,7 @@ import {
   FileText,
   History,
   LayoutDashboard,
+  Layers,
   Menu,
   Package,
   Percent,
@@ -20,6 +21,7 @@ import {
 import AdminDashboard from "./admin/Dashboard";
 import AdminUsers from "./admin/Users";
 import AdminProducts from "./admin/Products";
+import AdminCategories from "./admin/Categories";
 import AdminInvoices from "./admin/Invoices";
 import AdminReports from "./admin/Reports";
 import AdminSalesForecast from "./admin/SalesForecast";
@@ -39,6 +41,7 @@ const adminSections: AdminSection[] = [
   { id: "dashboard", label: "Inicio", description: "Resumen general", to: "/admin/dashboard", icon: LayoutDashboard },
   { id: "usuarios", label: "Gestion usuario", description: "Crea cuentas y asigna roles", to: "/admin/usuarios", icon: Users2 },
   { id: "productos", label: "Gestion productos", description: "Inventario y precios", to: "/admin/productos", icon: Package },
+  { id: "categorias", label: "Categorías", description: "Organiza colecciones", to: "/admin/categorias", icon: Layers },
   { id: "facturas", label: "Facturas", description: "Historial y estados", to: "/admin/facturas", icon: FileText },
   { id: "reportes", label: "Reportes", description: "Consultas dinamicas", to: "/admin/reportes", icon: ShieldCheck },
   { id: "prediccion", label: "Prediccion", description: "Proyecciones de ventas", to: "/admin/prediccion", icon: TrendingUp },
@@ -194,6 +197,7 @@ export default function Admin(){
                   <Route path="dashboard" element={<AdminDashboard />} />
                   <Route path="usuarios" element={<AdminUsers />} />
                   <Route path="productos" element={<AdminProducts />} />
+                  <Route path="categorias" element={<AdminCategories />} />
                   <Route path="facturas" element={<AdminInvoices />} />
                   <Route path="reportes" element={<AdminReports />} />
                   <Route path="prediccion" element={<AdminSalesForecast />} />

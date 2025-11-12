@@ -23,6 +23,11 @@ export interface Category {
   descripcion?: string | null;
 }
 
+export interface CategoryPayload {
+  nombre: string;
+  descripcion?: string | null;
+}
+
 export interface DiscountSummary {
   id: number;
   porcentaje: string;
@@ -236,6 +241,20 @@ export const syncCart = async (payload: CartSyncPayload) => {
 export const fetchCategories = async () =>
   cachedGet<Category[]>("categorias", "categorias/", 1000 * 60 * 30);
 
+export const createCategory = async (payload: CategoryPayload) => {
+  const { data } = await api.post<Category>("categorias/", payload);
+  return data;
+};
+
+export const updateCategory = async (id: number, payload: CategoryPayload) => {
+  const { data } = await api.patch<Category>(`categorias/${id}/`, payload);
+  return data;
+};
+
+export const deleteCategory = async (id: number) => {
+  await api.delete(`categorias/${id}/`);
+};
+
 export const fetchUsers = async () =>
   cachedGet<Usuario[]>("usuarios", "usuario/", 1000 * 60 * 5);
 
@@ -329,6 +348,18 @@ export const fetchInvoices = async (usuarioId: number) =>
 
 export const fetchAllInvoices = async () =>
   cachedGet<Invoice[]>("facturas", "pagos/facturas/", 1000 * 60 * 5);
+
+export interface InvoiceSummary {
+  count: number;
+  amount_total: number;
+  real_count: number;
+  real_amount_total: number;
+}
+
+export const fetchInvoiceSummary = async () => {
+  const { data } = await api.get<InvoiceSummary>("pagos/facturas/resumen/");
+  return data;
+};
 
 export type ReportFormat = "screen" | "pdf" | "excel";
 
@@ -428,7 +459,7 @@ export interface SalesPredictionsResponse {
     period_to?: string | null;
   };
 }
-
+      
 export const fetchSalesPredictions = async () =>
   cachedGet<SalesPredictionsResponse>("analitica-predicciones", "analitica/ventas/predicciones/", 1000 * 60 * 30);
 
