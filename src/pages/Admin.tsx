@@ -6,14 +6,16 @@ import { Navigate, NavLink, Route, Routes, useLocation } from "react-router-dom"
 import type { LucideIcon } from "lucide-react";
 import {
   AlertTriangle,
+  Brain,
+  ChevronDown,
   FileText,
   History,
   LayoutDashboard,
-  Layers,
   Menu,
   Package,
   Percent,
   ShieldCheck,
+  ShoppingCart,
   TrendingUp,
   Users2,
   X,
@@ -37,28 +39,83 @@ interface AdminSection {
   icon: LucideIcon;
 }
 
-const adminSections: AdminSection[] = [
-  { id: "dashboard", label: "Inicio", description: "Resumen general", to: "/admin/dashboard", icon: LayoutDashboard },
-  { id: "usuarios", label: "Gestion usuario", description: "Crea cuentas y asigna roles", to: "/admin/usuarios", icon: Users2 },
-  { id: "productos", label: "Gestion productos", description: "Inventario y precios", to: "/admin/productos", icon: Package },
-  { id: "categorias", label: "Categorías", description: "Organiza colecciones", to: "/admin/categorias", icon: Layers },
-  { id: "facturas", label: "Facturas", description: "Historial y estados", to: "/admin/facturas", icon: FileText },
-  { id: "reportes", label: "Reportes", description: "Consultas dinamicas", to: "/admin/reportes", icon: ShieldCheck },
-  { id: "prediccion", label: "Prediccion", description: "Proyecciones de ventas", to: "/admin/prediccion", icon: TrendingUp },
-  { id: "descuentos", label: "Descuentos", description: "Gestiona promociones", to: "/admin/descuentos", icon: Percent },
-  { id: "bajo-stock", label: "Bajo stock", description: "Productos con stock critico", to: "/admin/bajo-stock", icon: AlertTriangle },
-  { id: "bitacora", label: "Bitacora", description: "Registro de acciones clave", to: "/admin/bitacora", icon: History },
+interface AdminGroup {
+  id: string;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+  items: AdminSection[];
+}
+
+const standaloneSections: AdminSection[] = [];
+
+const adminGroups: AdminGroup[] = [
+  {
+    id: "prediccion-module",
+    label: "Gestionar módulo de predicción",
+    description: "Modelos y escenarios de ventas",
+    icon: Brain,
+    items: [
+      { id: "dashboard", label: "Proyección de ventas", description: "Resumen general", to: "/admin/dashboard", icon: LayoutDashboard },
+      { id: "prediccion", label: "Entrenamiento de modelo", description: "Proyecciones y precisión", to: "/admin/prediccion", icon: TrendingUp },
+    ],
+  },
+  {
+    id: "usuarios-module",
+    label: "Modulo usuarios",
+    description: "Roles, permisos y cuentas",
+    icon: Users2,
+    items: [
+      { id: "usuarios", label: "Gestión de usuarios", description: "Crea cuentas y asigna roles", to: "/admin/usuarios", icon: Users2 },
+    ],
+  },
+  {
+    id: "facturas-reportes",
+    label: "Módulo de facturas y reportes",
+    description: "Historial contable y analíticas",
+    icon: FileText,
+    items: [
+      { id: "facturas", label: "Facturas", description: "Historial y estados", to: "/admin/facturas", icon: FileText },
+      { id: "reportes", label: "Reportes", description: "Consultas dinámicas", to: "/admin/reportes", icon: ShieldCheck },
+      { id: "bitacora", label: "Bitácora", description: "Registro de acciones clave", to: "/admin/bitacora", icon: History },
+    ],
+  },
+  {
+    id: "ventas-module",
+    label: "Módulo de ventas",
+    description: "Catálogo y promociones",
+    icon: ShoppingCart,
+    items: [
+      { id: "productos", label: "Productos", description: "Inventario y precios", to: "/admin/productos", icon: Package },
+      { id: "categorias", label: "Categorías", description: "Organiza colecciones", to: "/admin/categorias", icon: Package },
+      { id: "descuentos", label: "Descuentos", description: "Gestiona promociones", to: "/admin/descuentos", icon: Percent },
+      { id: "bajo-stock", label: "Bajo stock", description: "Productos con stock crítico", to: "/admin/bajo-stock", icon: AlertTriangle },
+    ],
+  },
 ];
 
 
 export default function Admin(){
   const location = useLocation();
   const [drawerOpen, setDrawerOpen] = useState(false); // SOLO móvil
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() =>
+    Object.fromEntries(adminGroups.map((group) => [group.id, true]))
+  );
 
   const activeId = useMemo(() => {
-    const found = adminSections.find(s => location.pathname.startsWith(s.to));
+    const allSections = [
+      ...standaloneSections,
+      ...adminGroups.flatMap((group) => group.items),
+    ];
+    const found = allSections.find((section) => location.pathname.startsWith(section.to));
     return found?.id ?? "dashboard";
   }, [location.pathname]);
+
+  const toggleGroup = (groupId: string) => {
+    setOpenGroups((prev) => ({ ...prev, [groupId]: !prev[groupId] }));
+  };
+
+  const handleNavClick = () => setDrawerOpen(false);
 
   function Sidebar(){
     return (
@@ -86,39 +143,67 @@ export default function Admin(){
         </div>
 
         {/* Navegación */}
-        <nav className="mt-2 space-y-2 px-2 pb-6">
-          {adminSections.map((section) => {
-            const Icon = section.icon;
-            const isActive = activeId === section.id;
+        <nav className="mt-2 space-y-3 px-2 pb-6">
+
+          {adminGroups.map((group) => {
+            const GroupIcon = group.icon;
+            const isOpen = openGroups[group.id];
             return (
-              <NavLink
-                key={section.id}
-                to={section.to}
-                onClick={() => setDrawerOpen(false)}
-                className={({ isActive: navActive }) => [
-                  "group flex items-center gap-3 rounded-2xl px-3.5 py-3 text-sm outline-none ring-offset-2 ring-offset-slate-900",
-                  (isActive || navActive)
-                    ? "bg-white text-slate-900 shadow-lg ring-white/0 focus:ring-2"
-                    : "bg-white/5 text-white/85 hover:bg-white/10 focus:ring-2 focus:ring-white/30",
-                ].join(" ")}
-                aria-current={isActive ? "page" : undefined}
-              >
-                <span className={[
-                  "grid place-items-center rounded-xl p-2.5",
-                  isActive ? "bg-primary/10 text-primary" : "bg-white/10",
-                ].join(" ")}>
-                  <Icon size={18} />
-                </span>
-
-                {/* Etiquetas SIEMPRE visibles en desktop */}
-                <span className="flex-1">
-                  <p className="font-semibold leading-none">{section.label}</p>
-                  <p className="mt-1 text-[11px] text-white/60">{section.description}</p>
-                </span>
-
-                {/* Indicador activo (pill) */}
-                {isActive && <span className="ml-auto h-2 w-2 rounded-full bg-sky-500 shadow-[0_0_0_3px_rgba(14,165,233,.25)]" />}
-              </NavLink>
+              <div key={group.id} className="rounded-2xl bg-white/5 text-white">
+                <button
+                  type="button"
+                  onClick={() => toggleGroup(group.id)}
+                  className="flex w-full items-center gap-3 rounded-2xl px-3.5 py-3 text-left text-sm focus:outline-none focus:ring-2 focus:ring-white/30"
+                  aria-expanded={isOpen}
+                >
+                  <span className="grid place-items-center rounded-xl bg-white/10 p-2.5">
+                    <GroupIcon size={18} />
+                  </span>
+                  <span className="flex-1">
+                    <p className="font-semibold leading-none">{group.label}</p>
+                    <p className="mt-1 text-[11px] text-white/60">{group.description}</p>
+                  </span>
+                  <ChevronDown
+                    size={16}
+                    className={[
+                      "transition-transform duration-200",
+                      isOpen ? "rotate-180" : "",
+                    ].join(" ")}
+                  />
+                </button>
+                {isOpen && (
+                  <div className="space-y-1 border-t border-white/5 px-2 pb-3 pt-2" role="group" aria-label={group.label}>
+                    {group.items.map((section) => {
+                      const Icon = section.icon;
+                      const isActive = activeId === section.id;
+                      return (
+                        <NavLink
+                          key={section.id}
+                          to={section.to}
+                          onClick={handleNavClick}
+                          className={({ isActive: navActive }) => [
+                            "flex items-center gap-2 rounded-2xl px-3 py-2 text-sm",
+                            (isActive || navActive)
+                              ? "bg-white text-slate-900 shadow-lg focus:ring-2 focus:ring-primary/30"
+                              : "text-white/80 hover:bg-white/10 focus:ring-2 focus:ring-white/30",
+                          ].join(" ")}
+                        >
+                          <span className={[
+                            "grid place-items-center rounded-lg p-2",
+                            isActive ? "bg-primary/10 text-primary" : "bg-white/10",
+                          ].join(" ")}>
+                            <Icon size={16} />
+                          </span>
+                          <span className="flex-1">
+                            <p className="font-semibold leading-none">{section.label}</p>
+                            <p className="mt-1 text-[11px] text-white/60">{section.description}</p>
+                          </span>
+                        </NavLink>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
             );
           })}
         </nav>
